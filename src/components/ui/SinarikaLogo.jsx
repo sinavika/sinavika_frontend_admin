@@ -1,14 +1,14 @@
 import { FlaskConical, ClipboardCheck } from "lucide-react";
 
 /**
- * SınavLab marka logosu — sınav + lab teması
- * lucide-react: FlaskConical (lab), ClipboardCheck (sınav)
+ * Sınavika marka logosu
+ * lucide-react: FlaskConical, ClipboardCheck
  * @param {Object} props
  * @param {'sm'|'md'|'lg'} [props.size='md']
  * @param {'light'|'dark'|'default'} [props.variant='default']
  * @param {boolean} [props.iconOnly=false]
  */
-const SinarLabLogo = ({ size = "md", variant = "default", iconOnly = false }) => {
+const SinarikaLogo = ({ size = "md", variant = "default", iconOnly = false }) => {
   const sizeMap = {
     sm: { icon: 20, text: "text-base" },
     md: { icon: 24, text: "text-lg" },
@@ -37,11 +37,11 @@ const SinarLabLogo = ({ size = "md", variant = "default", iconOnly = false }) =>
       </div>
       {!iconOnly && (
         <span className={`font-bold tracking-tight ${textSize} ${labelColor}`}>
-          SınavLab
+          Sınavika
         </span>
       )}
     </div>
   );
 };
 
-export default SinarLabLogo;
+export default SinarikaLogo;

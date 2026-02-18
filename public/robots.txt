@@ -1,4 +1,4 @@
-# Tedarika Admin - Arama motorlarına kapalı
+# www.admin.sinavika.com - Arama motorlarında indexlenmesin
 User-agent: *
 Disallow: /
 

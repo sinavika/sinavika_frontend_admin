@@ -12,7 +12,7 @@ import {
   Users,
   CreditCard,
 } from "lucide-react";
-import SinarLabLogo from "@/components/ui/SinarLabLogo";
+import SinarikaLogo from "@/components/ui/SinarikaLogo";
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -77,9 +77,9 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
         ].join(" ")}
       >
         <div className="flex flex-col w-full">
-          {/* Üst bar - SınavLab logosu */}
+          {/* Üst bar - Sınavika logosu */}
           <div className="flex items-center justify-between h-16 px-4 border-b border-slate-700/80">
-            <SinarLabLogo size="sm" variant="dark" iconOnly={collapsed} />
+            <SinarikaLogo size="sm" variant="dark" iconOnly={collapsed} />
             <button
               className="h-8 w-8 rounded-lg hover:bg-slate-700/80 grid place-items-center transition-colors"
               onClick={() => setCollapsed((c) => !c)}
@@ -145,7 +145,7 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
         aria-modal="true"
       >
         <div className="flex items-center justify-between h-16 border-b border-slate-700/80 px-4">
-          <SinarLabLogo size="sm" variant="dark" />
+          <SinarikaLogo size="sm" variant="dark" />
           <button
             className="min-h-[44px] min-w-[44px] rounded-lg hover:bg-slate-700/80 grid place-items-center touch-manipulation"
             onClick={() => setMobileOpen(false)}
