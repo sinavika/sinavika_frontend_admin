@@ -1,6 +1,6 @@
 import { useAuth } from "@/context/AuthContext";
 import { UserCircle, LogOut, Bell } from "lucide-react";
-import SinarLabLogo from "@/components/ui/SinarLabLogo";
+import SinarikaLogo from "@/components/ui/SinarikaLogo";
 
 const Header = () => {
   const { user, logout } = useAuth();
@@ -13,7 +13,7 @@ const Header = () => {
       <div className="flex items-center justify-between gap-3 min-w-0 w-full">
         {/* Sol: Logo + Başlık */}
         <div className="min-w-0 flex-1 flex items-center gap-3">
-          <SinarLabLogo size="sm" variant="default" />
+          <SinarikaLogo size="sm" variant="default" />
           <div className="min-w-0 hidden sm:block">
             <h2 className="text-xs font-medium text-gray-500 truncate">Admin Paneli</h2>
           </div>

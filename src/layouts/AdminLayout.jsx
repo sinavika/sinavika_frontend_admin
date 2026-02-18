@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Sidebar from "@/layouts/Sidebar";
 import Header from "@/layouts/Header";
-import SinarLabLogo from "@/components/ui/SinarLabLogo";
+import SinarikaLogo from "@/components/ui/SinarikaLogo";
 
 const AdminLayout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);     // masaüstü için
@@ -73,8 +73,8 @@ const AdminLayout = ({ children }) => {
         {/* Footer */}
         <footer className="border-t border-gray-200 bg-white/80 py-4 px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-gray-500">
-            <SinarLabLogo size="sm" variant="default" />
-            <span>© {new Date().getFullYear()} SınavLab — Tüm hakları saklıdır</span>
+            <SinarikaLogo size="sm" variant="default" />
+            <span>© {new Date().getFullYear()} Sınavika — Tüm hakları saklıdır</span>
           </div>
         </footer>
       </div>

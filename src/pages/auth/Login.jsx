@@ -7,7 +7,7 @@ import {
   recordFailedAttempt,
   clearLoginAttempts,
 } from "@/utils/loginRateLimit";
-import SinarLabLogo from "@/components/ui/SinarLabLogo";
+import SinarikaLogo from "@/components/ui/SinarikaLogo";
 
 const Login = () => {
   const { user, login } = useAuth();
@@ -88,7 +88,7 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-[#1b335a] flex flex-col items-center justify-center px-4 relative overflow-hidden">
       <div className="mb-8 animate-fade-in-slow">
-        <SinarLabLogo size="lg" variant="light" />
+        <SinarikaLogo size="lg" variant="light" />
       </div>
 
       <div className={cardClass}>
