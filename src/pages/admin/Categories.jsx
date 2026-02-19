@@ -27,8 +27,8 @@ import {
   updateCategorySection,
   deleteCategorySection,
 } from "@/services/adminCategorySectionService";
-import { getAllLessons } from "@/services/adminLessonService";
-import { getLessonSubsByLessonId } from "@/services/adminLessonSubService";
+import { getAllLessonMains } from "@/services/adminLessonMainService";
+import { getLessonSubsByLessonMainId } from "@/services/adminLessonSubService";
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from "@/constants";
 import { formatDate } from "@/utils/format";
 
@@ -92,7 +92,7 @@ const Categories = () => {
       return;
     }
     let cancelled = false;
-    getLessonSubsByLessonId(sectionForm.lessonId).then((data) => {
+    getLessonSubsByLessonMainId(sectionForm.lessonId).then((data) => {
       if (!cancelled) setSectionLessonSubs(Array.isArray(data) ? data : []);
     }).catch(() => { if (!cancelled) setSectionLessonSubs([]); });
     return () => { cancelled = true; };
@@ -118,7 +118,7 @@ const Categories = () => {
   const loadLessonsOnce = async () => {
     if (lessons.length > 0) return;
     try {
-      const data = await getAllLessons();
+      const data = await getAllLessonMains();
       setLessons(Array.isArray(data) ? data : []);
     } catch {
       setLessons([]);
