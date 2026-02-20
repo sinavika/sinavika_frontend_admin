@@ -111,7 +111,17 @@ const Coupons = () => {
     resetForm();
   };
 
-  const buildPayload = () => ({
+  // Rapor 17.2: create body code, discountPercent, validFrom, validUntil, maxUseCount, isActive
+  const buildCreatePayload = () => ({
+    code: form.code.trim(),
+    discountPercent: form.discountType === 0 ? (parseFloat(form.discountValue) ?? 0) : 0,
+    validFrom: form.startsAt ? new Date(form.startsAt).toISOString() : undefined,
+    validUntil: form.endsAt ? new Date(form.endsAt).toISOString() : undefined,
+    maxUseCount: form.maxRedemptionsTotal ? parseInt(form.maxRedemptionsTotal, 10) : undefined,
+    isActive: form.isActive,
+  });
+
+  const buildUpdatePayload = () => ({
     code: form.code.trim(),
     name: form.name.trim(),
     description: form.description?.trim() || undefined,
@@ -132,13 +142,13 @@ const Coupons = () => {
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!form.code.trim() || !form.name.trim()) {
-      toast.error("Kod ve ad zorunludur.");
+    if (!form.code.trim()) {
+      toast.error("Kod zorunludur.");
       return;
     }
     setSubmitting(true);
     try {
-      await createCoupon(buildPayload());
+      await createCoupon(buildCreatePayload());
       toast.success(SUCCESS_MESSAGES.CREATE_SUCCESS);
       closeModal();
       loadCoupons();
@@ -154,7 +164,7 @@ const Coupons = () => {
     if (!selected) return;
     setSubmitting(true);
     try {
-      await updateCoupon(selected.id, buildPayload());
+      await updateCoupon(selected.id, buildUpdatePayload());
       toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
       closeModal();
       loadCoupons();

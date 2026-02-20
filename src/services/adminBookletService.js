@@ -99,3 +99,45 @@ export const bulkImportExcel = async (file) => {
   );
   return response.data;
 };
+
+/**
+ * PDF ile toplu soru yükleme (havuza). POST /AdminQuestionBooklet/bulk-import/pdf
+ * Rapor 14.10: multipart file, lessonId (zorunlu), lessonSubId?, publisherId?
+ * @param {File} file PDF dosyası
+ * @param {{ lessonId: string, lessonSubId?: string, publisherId?: string }} params
+ */
+export const bulkImportPdf = async (file, params = {}) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (params.lessonId) formData.append("lessonId", params.lessonId);
+  if (params.lessonSubId != null && params.lessonSubId !== "")
+    formData.append("lessonSubId", params.lessonSubId);
+  if (params.publisherId != null && params.publisherId !== "")
+    formData.append("publisherId", params.publisherId);
+  const response = await adminApi.post(
+    "/AdminQuestionBooklet/bulk-import/pdf",
+    formData
+  );
+  return response.data;
+};
+
+/**
+ * Word (.docx) ile toplu soru yükleme (havuza). POST /AdminQuestionBooklet/bulk-import/word
+ * Rapor 14.11: multipart file, lessonId (zorunlu), lessonSubId?, publisherId?
+ * @param {File} file .docx dosyası
+ * @param {{ lessonId: string, lessonSubId?: string, publisherId?: string }} params
+ */
+export const bulkImportWord = async (file, params = {}) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (params.lessonId) formData.append("lessonId", params.lessonId);
+  if (params.lessonSubId != null && params.lessonSubId !== "")
+    formData.append("lessonSubId", params.lessonSubId);
+  if (params.publisherId != null && params.publisherId !== "")
+    formData.append("publisherId", params.publisherId);
+  const response = await adminApi.post(
+    "/AdminQuestionBooklet/bulk-import/word",
+    formData
+  );
+  return response.data;
+};

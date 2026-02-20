@@ -31,7 +31,7 @@ export const getExamById = async (id) => {
 
 /**
  * Sınav oluştur. POST /AdminExam/create
- * Body: title, description, instructions, durationMinutes, graceSeconds, publisherId, categoryId, categorySubId, startsAt, endsAt, accessDurationDays, participationQuota, isAdaptive, blueprint { totalQuestionCount, negativeMarkingRule }, sections [ { name, orderIndex, durationMinutes, questionCountTarget, quotas } ]
+ * Rapor 10.4: title, description, instructions, publisherId, categoryId, categorySubId, startsAt, endsAt, accessDurationDays, participationQuota, isAdaptive (bölümler sonra AdminExamSection/assign ile eklenir)
  */
 export const createExam = async (data) => {
   const response = await adminApi.post("/AdminExam/create", data);
@@ -40,7 +40,7 @@ export const createExam = async (data) => {
 
 /**
  * Sınav güncelle. PUT /AdminExam/update?id={id}
- * Body (opsiyonel): title, description, status, blueprint, sections
+ * Rapor 10.5: body sadece title, description, startsAt, endsAt
  */
 export const updateExam = async (id, data) => {
   const response = await adminApi.put("/AdminExam/update", data, {

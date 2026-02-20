@@ -383,17 +383,13 @@ const Categories = () => {
     if (!sectionEditId) return;
     setSectionSubmitting(true);
     try {
+      // Rapor 5.5: update body sadece lessonId, name, orderIndex, questionCount, durationMinutes
       await updateCategorySection(sectionEditId, {
         lessonId: sectionForm.lessonId || undefined,
-        lessonSubId: sectionForm.lessonSubId?.trim() || undefined,
         name: sectionForm.name?.trim() || undefined,
         orderIndex: Number(sectionForm.orderIndex),
         questionCount: Number(sectionForm.questionCount),
         durationMinutes: sectionForm.durationMinutes != null && sectionForm.durationMinutes !== "" ? Number(sectionForm.durationMinutes) : undefined,
-        minQuestions: sectionForm.minQuestions != null && sectionForm.minQuestions !== "" ? Number(sectionForm.minQuestions) : undefined,
-        maxQuestions: sectionForm.maxQuestions != null && sectionForm.maxQuestions !== "" ? Number(sectionForm.maxQuestions) : undefined,
-        targetQuestions: sectionForm.targetQuestions != null && sectionForm.targetQuestions !== "" ? Number(sectionForm.targetQuestions) : undefined,
-        difficultyMix: sectionForm.difficultyMix?.trim() || undefined,
       });
       toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
       setSectionEditId(null);

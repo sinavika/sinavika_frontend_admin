@@ -28,16 +28,16 @@ export const getLessonSubById = async (id) => {
 
 /**
  * Belirtilen LessonMain'e yeni LessonSub ekler. POST /AdminLessonSub/{lessonMainId}/create
+ * Rapor 8.3: body name, code, orderIndex, isActive.
  * @param {string} lessonMainId LessonMain id (Guid)
- * @param {{ code: string, name: string, description?: string, orderIndex?: number, isActive?: boolean }} data
+ * @param {{ code: string, name: string, orderIndex?: number, isActive?: boolean }} data
  */
 export const createLessonSub = async (lessonMainId, data) => {
   const response = await adminApi.post(
     `/AdminLessonSub/${lessonMainId}/create`,
     {
-      code: data.code?.trim() ?? "",
       name: data.name?.trim() ?? "",
-      description: data.description?.trim() || undefined,
+      code: data.code?.trim() ?? "",
       orderIndex: Number(data.orderIndex) ?? 0,
       isActive: data.isActive !== false,
     }

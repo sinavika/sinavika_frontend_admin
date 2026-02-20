@@ -18,18 +18,13 @@ export const getPublisherById = async (id) => {
 
 /**
  * Yayınevi oluştur. POST /AdminPublisher/create (multipart/form-data)
+ * Rapor 16.2: name, code, isActive, file (opsiyonel).
  */
 export const createPublisher = async (data) => {
   const formData = new FormData();
-  if (data.name) formData.append("Name", data.name);
-  if (data.legalName) formData.append("LegalName", data.legalName);
-  if (data.taxNumber) formData.append("TaxNumber", data.taxNumber);
-  if (data.taxOffice) formData.append("TaxOffice", data.taxOffice);
-  if (data.websiteUrl) formData.append("WebsiteUrl", data.websiteUrl);
-  if (data.supportEmail) formData.append("SupportEmail", data.supportEmail);
-  if (data.phone) formData.append("Phone", data.phone);
-  if (data.brandColorHex) formData.append("BrandColorHex", data.brandColorHex);
-  formData.append("IsActive", data.isActive !== false ? "true" : "false");
+  if (data.name) formData.append("name", data.name);
+  if (data.code != null && data.code !== "") formData.append("code", data.code);
+  formData.append("isActive", data.isActive !== false ? "true" : "false");
   if (data.file) formData.append("file", data.file);
 
   const response = await adminApi.post("/AdminPublisher/create", formData);
@@ -38,9 +33,15 @@ export const createPublisher = async (data) => {
 
 /**
  * Yayınevi güncelle. PUT /AdminPublisher/update?id={id}
+ * Rapor 16.4: body name, code, isActive.
  */
 export const updatePublisher = async (id, data) => {
-  const response = await adminApi.put("/AdminPublisher/update", data, {
+  const payload = {
+    name: data.name,
+    code: data.code,
+    isActive: data.isActive,
+  };
+  const response = await adminApi.put("/AdminPublisher/update", payload, {
     params: { id },
   });
   return response.data;

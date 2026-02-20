@@ -98,7 +98,17 @@ const SubscriptionPackages = () => {
     resetForm();
   };
 
-  const buildPayload = () => ({
+  // Rapor 18.2: create body name, description, durationDays, price, currency, isActive
+  const buildCreatePayload = () => ({
+    name: form.name.trim(),
+    description: form.description?.trim() || undefined,
+    durationDays: form.validityDays ? parseInt(form.validityDays, 10) : undefined,
+    price: form.packagePrice ? parseFloat(form.packagePrice) : undefined,
+    currency: "TRY",
+    isActive: form.isActive,
+  });
+
+  const buildUpdatePayload = () => ({
     name: form.name.trim(),
     description: form.description?.trim() || undefined,
     planType: Number(form.planType) ?? 0,
@@ -124,7 +134,7 @@ const SubscriptionPackages = () => {
     }
     setSubmitting(true);
     try {
-      await createSubscriptionPackage(buildPayload());
+      await createSubscriptionPackage(buildCreatePayload());
       toast.success(SUCCESS_MESSAGES.CREATE_SUCCESS);
       closeModal();
       loadPackages();
@@ -140,7 +150,7 @@ const SubscriptionPackages = () => {
     if (!selected) return;
     setSubmitting(true);
     try {
-      await updateSubscriptionPackage(selected.id, buildPayload());
+      await updateSubscriptionPackage(selected.id, buildUpdatePayload());
       toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
       closeModal();
       loadPackages();

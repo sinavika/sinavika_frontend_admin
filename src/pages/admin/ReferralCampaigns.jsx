@@ -35,6 +35,7 @@ const ReferralCampaigns = () => {
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     name: "",
+    description: "",
     isActive: true,
     startsAt: "",
     endsAt: "",
@@ -67,6 +68,7 @@ const ReferralCampaigns = () => {
   const resetForm = () => {
     setForm({
       name: "",
+      description: "",
       isActive: true,
       startsAt: "",
       endsAt: "",
@@ -90,6 +92,7 @@ const ReferralCampaigns = () => {
     setSelected(item);
     setForm({
       name: item.name || "",
+      description: item.description || "",
       isActive: item.isActive !== false,
       startsAt: toISO(item.startsAt),
       endsAt: toISO(item.endsAt),
@@ -114,8 +117,22 @@ const ReferralCampaigns = () => {
     resetForm();
   };
 
-  const buildPayload = () => ({
+  // Rapor 19.2: create body name, description, rewardType, rewardValue, validFrom, validUntil, isActive
+  const buildCreatePayload = () => ({
     name: form.name.trim(),
+    description: form.description?.trim() || undefined,
+    rewardType: form.referrerRewardType ?? 2,
+    rewardValue: form.referrerRewardValue
+      ? parseFloat(form.referrerRewardValue)
+      : undefined,
+    validFrom: form.startsAt ? new Date(form.startsAt).toISOString() : undefined,
+    validUntil: form.endsAt ? new Date(form.endsAt).toISOString() : undefined,
+    isActive: form.isActive,
+  });
+
+  const buildUpdatePayload = () => ({
+    name: form.name.trim(),
+    description: form.description?.trim() || undefined,
     isActive: form.isActive,
     startsAt: form.startsAt ? new Date(form.startsAt).toISOString() : undefined,
     endsAt: form.endsAt ? new Date(form.endsAt).toISOString() : undefined,
@@ -146,7 +163,7 @@ const ReferralCampaigns = () => {
     }
     setSubmitting(true);
     try {
-      await createReferralCampaign(buildPayload());
+      await createReferralCampaign(buildCreatePayload());
       toast.success(SUCCESS_MESSAGES.CREATE_SUCCESS);
       closeModal();
       loadCampaigns();
@@ -162,7 +179,7 @@ const ReferralCampaigns = () => {
     if (!selected) return;
     setSubmitting(true);
     try {
-      await updateReferralCampaign(selected.id, buildPayload());
+      await updateReferralCampaign(selected.id, buildUpdatePayload());
       toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
       closeModal();
       loadCampaigns();

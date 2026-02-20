@@ -50,10 +50,17 @@ export const createCategorySection = async (data) => {
 
 /**
  * Bölüm şablonu güncelle. PUT /AdminCategorySection/{id}
- * Body (opsiyonel): lessonId?, lessonSubId?, name?, orderIndex?, questionCount?, durationMinutes?, minQuestions?, maxQuestions?, targetQuestions?, difficultyMix?
+ * Rapor 5.5: body lessonId, name, orderIndex, questionCount, durationMinutes.
  */
 export const updateCategorySection = async (id, data) => {
-  const response = await adminApi.put(`/AdminCategorySection/${id}`, data);
+  const payload = {
+    lessonId: data.lessonId,
+    name: data.name,
+    orderIndex: data.orderIndex,
+    questionCount: data.questionCount,
+    durationMinutes: data.durationMinutes,
+  };
+  const response = await adminApi.put(`/AdminCategorySection/${id}`, payload);
   return response.data;
 };
 

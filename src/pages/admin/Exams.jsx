@@ -382,12 +382,11 @@ const Exams = () => {
     });
   };
 
-  const buildPayload = () => ({
+  // Rapor 10.4: create sadece temel alanlar; bölümler sonra Yönet > assign ile eklenir
+  const buildCreatePayload = () => ({
     title: form.title.trim(),
     description: form.description?.trim() || undefined,
     instructions: form.instructions?.trim() || undefined,
-    durationMinutes: Number(form.durationMinutes) || 120,
-    graceSeconds: Number(form.graceSeconds) ?? 15,
     publisherId: form.publisherId?.trim() || undefined,
     categoryId: form.categoryId ? Number(form.categoryId) : undefined,
     categorySubId: form.categorySubId
@@ -396,32 +395,19 @@ const Exams = () => {
     startsAt: form.startsAt ? new Date(form.startsAt).toISOString() : undefined,
     endsAt: form.endsAt ? new Date(form.endsAt).toISOString() : undefined,
     accessDurationDays: Number(form.accessDurationDays) ?? 7,
-    participationQuota: Number(form.participationQuota) ?? 100,
+    participationQuota:
+      form.participationQuota === "" || form.participationQuota == null
+        ? null
+        : Number(form.participationQuota),
     isAdaptive: form.isAdaptive,
-    blueprint: {
-      totalQuestionCount:
-        Number(form.blueprint?.totalQuestionCount) || 20,
-      negativeMarkingRule: form.blueprint?.negativeMarkingRule || "4W1R",
-    },
-    sections: form.sections
-      .filter((s) => s.name?.trim())
-      .map((s, i) => ({
-        name: s.name.trim(),
-        orderIndex: i,
-        durationMinutes: Number(s.durationMinutes) || 30,
-        questionCountTarget: Number(s.questionCountTarget) || 10,
-        quotas: (s.quotas || [])
-          .filter((q) => q.lessonId?.trim())
-          .map((q, j) => ({
-            lessonId: q.lessonId.trim(),
-            lessonSubId: q.lessonSubId?.trim() || undefined,
-            minQuestions: Number(q.minQuestions) ?? 1,
-            maxQuestions: Number(q.maxQuestions) ?? 10,
-            targetQuestions: Number(q.targetQuestions) ?? 5,
-            difficultyMix: q.difficultyMix || undefined,
-            orderIndex: j,
-          })),
-      })),
+  });
+
+  // Rapor 10.5: update sadece title, description, startsAt, endsAt
+  const buildUpdatePayload = () => ({
+    title: form.title.trim(),
+    description: form.description?.trim() || undefined,
+    startsAt: form.startsAt ? new Date(form.startsAt).toISOString() : undefined,
+    endsAt: form.endsAt ? new Date(form.endsAt).toISOString() : undefined,
   });
 
   const handleCreate = async (e) => {
@@ -432,7 +418,7 @@ const Exams = () => {
     }
     setSubmitting(true);
     try {
-      await createExam(buildPayload());
+      await createExam(buildCreatePayload());
       toast.success(SUCCESS_MESSAGES.CREATE_SUCCESS);
       closeModal();
       loadExams();
@@ -448,10 +434,7 @@ const Exams = () => {
     if (!selected) return;
     setSubmitting(true);
     try {
-      await updateExam(selected.id, {
-        ...buildPayload(),
-        status: selected.status,
-      });
+      await updateExam(selected.id, buildUpdatePayload());
       toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
       closeModal();
       loadExams();
@@ -917,6 +900,7 @@ const Exams = () => {
           submitting={submitting}
           locked={false}
           title="Yeni Sınav"
+          isCreate={true}
         />
       )}
 
@@ -940,6 +924,7 @@ const Exams = () => {
           submitting={submitting}
           locked={selected.isLocked}
           title="Sınav Düzenle"
+          isCreate={false}
         />
       )}
 
@@ -1370,8 +1355,10 @@ function ExamFormModal({
   submitting,
   locked,
   title,
+  isCreate = false,
 }) {
-  const canEditStructure = !locked;
+  // Rapor: bölümler create/update'te yok; sadece Yönet > assign (categoriesSectionId + questionsTemplateId) ile eklenir
+  const canEditStructure = !locked && !isCreate;
 
   return (
     <div className="admin-modal-backdrop" onClick={onClose}>
@@ -1567,6 +1554,11 @@ function ExamFormModal({
               </div>
             </div>
 
+            {isCreate && (
+              <div className="rounded-lg bg-slate-100 border border-slate-200 p-3 text-sm text-slate-600">
+                <strong>Raporla uyumlu akış:</strong> Bölümler ve şablonlar sınav oluşturduktan sonra sınav satırındaki <strong>Yönet</strong> ile atanır (bölüm şablonu + soru şablonu).
+              </div>
+            )}
             {canEditStructure && (
               <>
                 <div className="border-t border-slate-200 pt-4">

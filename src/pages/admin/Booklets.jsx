@@ -19,6 +19,8 @@ import {
   deleteBookletItem,
   bulkImportJson,
   bulkImportExcel,
+  bulkImportPdf,
+  bulkImportWord,
 } from "@/services/adminBookletService";
 import { ERROR_MESSAGES } from "@/constants";
 
@@ -34,13 +36,20 @@ const Booklets = () => {
   const [addCodeSubmitting, setAddCodeSubmitting] = useState(false);
   const [orderSubmitting, setOrderSubmitting] = useState(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(null);
-  const [bulkTab, setBulkTab] = useState("json"); // "json" | "excel"
+  const [bulkTab, setBulkTab] = useState("json"); // "json" | "excel" | "pdf" | "word"
   const [bulkJson, setBulkJson] = useState("");
   const [bulkFile, setBulkFile] = useState(null);
+  const [bulkLessonId, setBulkLessonId] = useState("");
+  const [bulkLessonSubId, setBulkLessonSubId] = useState("");
+  const [bulkPublisherId, setBulkPublisherId] = useState("");
   const [bulkSubmitting, setBulkSubmitting] = useState(false);
   const [bulkResult, setBulkResult] = useState(null);
   const [expandedSectionId, setExpandedSectionId] = useState(null);
   const [firstLoadDone, setFirstLoadDone] = useState(false);
+
+  useEffect(() => {
+    setBulkFile(null);
+  }, [bulkTab]);
 
   const loadExams = async () => {
     setLoading(true);
@@ -206,6 +215,68 @@ const Booklets = () => {
       toast.success(
         `${result?.createdCount ?? 0} soru havuzuna eklendi.`
       );
+      setBulkFile(null);
+      if (result?.errorCount > 0 && result?.errors?.length) {
+        result.errors.forEach((err) => toast.error(err));
+      }
+    } catch (err) {
+      toast.error(err.message || "Toplu yükleme başarısız.");
+    } finally {
+      setBulkSubmitting(false);
+    }
+  };
+
+  const handleBulkImportPdf = async (e) => {
+    e.preventDefault();
+    if (!bulkFile) {
+      toast.error("PDF dosyası seçin.");
+      return;
+    }
+    if (!bulkLessonId?.trim()) {
+      toast.error("Ders (LessonId) zorunludur.");
+      return;
+    }
+    setBulkSubmitting(true);
+    setBulkResult(null);
+    try {
+      const result = await bulkImportPdf(bulkFile, {
+        lessonId: bulkLessonId.trim(),
+        lessonSubId: bulkLessonSubId?.trim() || undefined,
+        publisherId: bulkPublisherId?.trim() || undefined,
+      });
+      setBulkResult(result);
+      toast.success(`${result?.createdCount ?? 0} soru havuzuna eklendi.`);
+      setBulkFile(null);
+      if (result?.errorCount > 0 && result?.errors?.length) {
+        result.errors.forEach((err) => toast.error(err));
+      }
+    } catch (err) {
+      toast.error(err.message || "Toplu yükleme başarısız.");
+    } finally {
+      setBulkSubmitting(false);
+    }
+  };
+
+  const handleBulkImportWord = async (e) => {
+    e.preventDefault();
+    if (!bulkFile) {
+      toast.error("Word (.docx) dosyası seçin.");
+      return;
+    }
+    if (!bulkLessonId?.trim()) {
+      toast.error("Ders (LessonId) zorunludur.");
+      return;
+    }
+    setBulkSubmitting(true);
+    setBulkResult(null);
+    try {
+      const result = await bulkImportWord(bulkFile, {
+        lessonId: bulkLessonId.trim(),
+        lessonSubId: bulkLessonSubId?.trim() || undefined,
+        publisherId: bulkPublisherId?.trim() || undefined,
+      });
+      setBulkResult(result);
+      toast.success(`${result?.createdCount ?? 0} soru havuzuna eklendi.`);
       setBulkFile(null);
       if (result?.errorCount > 0 && result?.errors?.length) {
         result.errors.forEach((err) => toast.error(err));
@@ -414,11 +485,11 @@ const Booklets = () => {
             Soru havuzuna toplu yükleme
           </h2>
           <p className="text-sm text-slate-500 mt-1">
-            JSON veya Excel ile soruları havuza ekleyin. Kitapçığa eklemek için yukarıdan &quot;Soru ekle&quot; kullanın.
+            JSON, Excel, PDF veya Word ile soruları havuza ekleyin. Kitapçığa eklemek için yukarıdan &quot;Soru ekle&quot; kullanın.
           </p>
         </div>
         <div className="p-4">
-          <div className="flex gap-2 border-b border-slate-200 mb-4">
+          <div className="flex flex-wrap gap-2 border-b border-slate-200 mb-4">
             <button
               type="button"
               className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
@@ -442,6 +513,30 @@ const Booklets = () => {
             >
               <Upload size={16} className="inline mr-2" />
               Excel
+            </button>
+            <button
+              type="button"
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                bulkTab === "pdf"
+                  ? "bg-emerald-500 text-white"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+              onClick={() => setBulkTab("pdf")}
+            >
+              <FileText size={16} className="inline mr-2" />
+              PDF
+            </button>
+            <button
+              type="button"
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                bulkTab === "word"
+                  ? "bg-emerald-500 text-white"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+              onClick={() => setBulkTab("word")}
+            >
+              <BookOpen size={16} className="inline mr-2" />
+              Word
             </button>
           </div>
 
@@ -485,6 +580,108 @@ const Booklets = () => {
               <button
                 type="submit"
                 disabled={bulkSubmitting || !bulkFile}
+                className="admin-btn admin-btn-primary"
+              >
+                {bulkSubmitting ? "Yükleniyor…" : "Havuza yükle"}
+              </button>
+            </form>
+          )}
+
+          {bulkTab === "pdf" && (
+            <form onSubmit={handleBulkImportPdf} className="space-y-4">
+              <div className="admin-form-group">
+                <label className="admin-label admin-label-required">PDF dosyası</label>
+                <input
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  className="admin-input"
+                  onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
+                />
+              </div>
+              <div className="admin-form-group">
+                <label className="admin-label admin-label-required">Ders (LessonId)</label>
+                <input
+                  type="text"
+                  className="admin-input"
+                  placeholder="Guid"
+                  value={bulkLessonId}
+                  onChange={(e) => setBulkLessonId(e.target.value)}
+                />
+              </div>
+              <div className="admin-form-group">
+                <label className="admin-label">Alt ders (LessonSubId)</label>
+                <input
+                  type="text"
+                  className="admin-input"
+                  placeholder="Opsiyonel"
+                  value={bulkLessonSubId}
+                  onChange={(e) => setBulkLessonSubId(e.target.value)}
+                />
+              </div>
+              <div className="admin-form-group">
+                <label className="admin-label">Yayınevi (PublisherId)</label>
+                <input
+                  type="text"
+                  className="admin-input"
+                  placeholder="Opsiyonel"
+                  value={bulkPublisherId}
+                  onChange={(e) => setBulkPublisherId(e.target.value)}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={bulkSubmitting || !bulkFile || !bulkLessonId?.trim()}
+                className="admin-btn admin-btn-primary"
+              >
+                {bulkSubmitting ? "Yükleniyor…" : "Havuza yükle"}
+              </button>
+            </form>
+          )}
+
+          {bulkTab === "word" && (
+            <form onSubmit={handleBulkImportWord} className="space-y-4">
+              <div className="admin-form-group">
+                <label className="admin-label admin-label-required">Word dosyası (.docx)</label>
+                <input
+                  type="file"
+                  accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  className="admin-input"
+                  onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
+                />
+              </div>
+              <div className="admin-form-group">
+                <label className="admin-label admin-label-required">Ders (LessonId)</label>
+                <input
+                  type="text"
+                  className="admin-input"
+                  placeholder="Guid"
+                  value={bulkLessonId}
+                  onChange={(e) => setBulkLessonId(e.target.value)}
+                />
+              </div>
+              <div className="admin-form-group">
+                <label className="admin-label">Alt ders (LessonSubId)</label>
+                <input
+                  type="text"
+                  className="admin-input"
+                  placeholder="Opsiyonel"
+                  value={bulkLessonSubId}
+                  onChange={(e) => setBulkLessonSubId(e.target.value)}
+                />
+              </div>
+              <div className="admin-form-group">
+                <label className="admin-label">Yayınevi (PublisherId)</label>
+                <input
+                  type="text"
+                  className="admin-input"
+                  placeholder="Opsiyonel"
+                  value={bulkPublisherId}
+                  onChange={(e) => setBulkPublisherId(e.target.value)}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={bulkSubmitting || !bulkFile || !bulkLessonId?.trim()}
                 className="admin-btn admin-btn-primary"
               >
                 {bulkSubmitting ? "Yükleniyor…" : "Havuza yükle"}

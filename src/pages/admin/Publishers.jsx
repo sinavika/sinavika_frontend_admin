@@ -21,6 +21,7 @@ const Publishers = () => {
   const [logoFile, setLogoFile] = useState(null);
   const [form, setForm] = useState({
     name: "",
+    code: "",
     legalName: "",
     taxNumber: "",
     taxOffice: "",
@@ -52,6 +53,7 @@ const Publishers = () => {
   const resetForm = () => {
     setForm({
       name: "",
+      code: "",
       legalName: "",
       taxNumber: "",
       taxOffice: "",
@@ -75,6 +77,7 @@ const Publishers = () => {
     setSelected(item);
     setForm({
       name: item.name || "",
+      code: item.code || "",
       legalName: item.legalName || "",
       taxNumber: item.taxNumber || "",
       taxOffice: item.taxOffice || "",
@@ -113,15 +116,10 @@ const Publishers = () => {
     }
     setSubmitting(true);
     try {
+      // Rapor 16.2: name, code, isActive, file (opsiyonel)
       await createPublisher({
         name: form.name.trim(),
-        legalName: form.legalName?.trim() || undefined,
-        taxNumber: form.taxNumber?.trim() || undefined,
-        taxOffice: form.taxOffice?.trim() || undefined,
-        websiteUrl: form.websiteUrl?.trim() || undefined,
-        supportEmail: form.supportEmail?.trim() || undefined,
-        phone: form.phone?.trim() || undefined,
-        brandColorHex: form.brandColorHex?.trim() || undefined,
+        code: form.code?.trim() || undefined,
         isActive: form.isActive,
         file: form.file || undefined,
       });
@@ -140,15 +138,10 @@ const Publishers = () => {
     if (!selected) return;
     setSubmitting(true);
     try {
+      // Rapor 16.4: name, code, isActive
       await updatePublisher(selected.id, {
         name: form.name.trim() || undefined,
-        legalName: form.legalName?.trim() || undefined,
-        taxNumber: form.taxNumber?.trim() || undefined,
-        taxOffice: form.taxOffice?.trim() || undefined,
-        websiteUrl: form.websiteUrl?.trim() || undefined,
-        supportEmail: form.supportEmail?.trim() || undefined,
-        phone: form.phone?.trim() || undefined,
-        brandColorHex: form.brandColorHex?.trim() || undefined,
+        code: form.code?.trim() || undefined,
         isActive: form.isActive,
       });
       toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
@@ -324,6 +317,18 @@ const Publishers = () => {
                     />
                   </div>
                   <div className="admin-form-group">
+                    <label className="admin-label">Kod</label>
+                    <input
+                      type="text"
+                      className="admin-input"
+                      value={form.code}
+                      onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
+                      placeholder="OY"
+                    />
+                  </div>
+                </div>
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
                     <label className="admin-label">Unvan</label>
                     <input
                       type="text"
@@ -334,8 +339,6 @@ const Publishers = () => {
                       }
                     />
                   </div>
-                </div>
-                <div className="admin-form-row admin-form-row-2">
                   <div className="admin-form-group">
                     <label className="admin-label">Vergi No</label>
                     <input
@@ -488,6 +491,18 @@ const Publishers = () => {
                     />
                   </div>
                   <div className="admin-form-group">
+                    <label className="admin-label">Kod</label>
+                    <input
+                      type="text"
+                      className="admin-input"
+                      value={form.code}
+                      onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
+                      placeholder="OY"
+                    />
+                  </div>
+                </div>
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
                     <label className="admin-label">Unvan</label>
                     <input
                       type="text"
@@ -498,8 +513,6 @@ const Publishers = () => {
                       }
                     />
                   </div>
-                </div>
-                <div className="admin-form-row admin-form-row-2">
                   <div className="admin-form-group">
                     <label className="admin-label">Vergi No</label>
                     <input

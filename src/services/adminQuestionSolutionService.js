@@ -31,17 +31,25 @@ export const getQuestionSolutionById = async (id) => {
 
 /**
  * Soru çözümü oluştur. POST /AdminQuestionSolution/create
- * @param {{ questionId: string, type: number, title?: string, contentText?: string, url?: string, orderIndex?: number, isActive?: boolean }} data
+ * Rapor 13.4: questionId, solutionType ("Text"|"Video"|"Pdf"|"Link"), content, videoUrl?, pdfUrl?, externalLink?
+ * Eski alanlar (type 0=Text,1=Video,2=Pdf,3=Link; contentText; url) rapor alanlarına eşlenir.
  */
 export const createQuestionSolution = async (data) => {
+  const typeToSolutionType = ["Text", "Video", "Pdf", "Link"];
+  const t = data.type ?? 0;
+  const solutionType = data.solutionType ?? typeToSolutionType[t] ?? "Text";
+  const content = data.content ?? data.contentText ?? null;
+  const videoUrl = data.videoUrl ?? (t === 1 ? data.url : null) ?? null;
+  const pdfUrl = data.pdfUrl ?? (t === 2 ? data.url : null) ?? null;
+  const externalLink = data.externalLink ?? (t === 3 ? data.url : null) ?? null;
+
   const response = await adminApi.post("/AdminQuestionSolution/create", {
     questionId: data.questionId,
-    type: data.type ?? 0,
-    title: data.title ?? null,
-    contentText: data.contentText ?? null,
-    url: data.url ?? null,
-    orderIndex: data.orderIndex ?? 0,
-    isActive: data.isActive !== false,
+    solutionType,
+    content: content ?? null,
+    videoUrl: videoUrl ?? null,
+    pdfUrl: pdfUrl ?? null,
+    externalLink: externalLink ?? null,
   });
   return response.data;
 };
