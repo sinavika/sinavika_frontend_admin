@@ -1,5 +1,5 @@
 // AdminLessonController — api/AdminLesson
-// Lesson = kategoriye bağlı ders listesi konteyneri (code/name yok; categorySubId, orderIndex, isActive)
+// Rapor (ADMIN-API-GIDIS-DONUS): create/update'te name, code, categorySubId, isActive
 import adminApi from "@/api/adminApi";
 
 /**
@@ -19,13 +19,15 @@ export const getLessonById = async (id) => {
 };
 
 /**
- * Yeni Lesson oluşturur (alt kategoriye bağlı liste konteyneri). POST /AdminLesson/create
- * @param {{ categorySubId: string, orderIndex?: number, isActive?: boolean }} data
+ * Yeni Lesson oluşturur. POST /AdminLesson/create
+ * Rapor: name, code, categorySubId, isActive
+ * @param {{ name: string, code: string, categorySubId: string, isActive?: boolean }} data
  */
 export const createLesson = async (data) => {
   const response = await adminApi.post("/AdminLesson/create", {
+    name: data.name?.trim() ?? "",
+    code: data.code?.trim() ?? "",
     categorySubId: data.categorySubId,
-    orderIndex: Number(data.orderIndex) ?? 0,
     isActive: data.isActive !== false,
   });
   return response.data;
@@ -33,7 +35,8 @@ export const createLesson = async (data) => {
 
 /**
  * Lesson günceller. PUT /AdminLesson/update?id={id}
- * @param {{ orderIndex?: number, isActive?: boolean }} data
+ * Rapor: name, code, isActive
+ * @param {{ name?: string, code?: string, isActive?: boolean }} data
  */
 export const updateLesson = async (id, data) => {
   const response = await adminApi.put("/AdminLesson/update", data, {

@@ -75,9 +75,10 @@ const Lessons = () => {
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [lessonForm, setLessonForm] = useState({
+    name: "",
+    code: "",
     categoryId: "",
     categorySubId: "",
-    orderIndex: 0,
     isActive: true,
   });
 
@@ -153,15 +154,16 @@ const Lessons = () => {
 
   const openCreateLesson = () => {
     setSelected(null);
-    setLessonForm({ categoryId: "", categorySubId: "", orderIndex: 0, isActive: true });
+    setLessonForm({ name: "", code: "", categoryId: "", categorySubId: "", isActive: true });
     setModal("createLesson");
   };
 
   const openEditLesson = (item) => {
     setSelected(item);
     setLessonForm({
+      name: item.name ?? "",
+      code: item.code ?? "",
       categorySubId: item.categorySubId ?? "",
-      orderIndex: item.orderIndex ?? 0,
       isActive: item.isActive !== false,
     });
     setModal("editLesson");
@@ -179,6 +181,10 @@ const Lessons = () => {
 
   const handleCreateLesson = async (e) => {
     e.preventDefault();
+    if (!lessonForm.name?.trim() || !lessonForm.code?.trim()) {
+      toast.error("Ad ve kod zorunludur.");
+      return;
+    }
     if (!lessonForm.categorySubId?.trim()) {
       toast.error("Alt kategori seçin.");
       return;
@@ -186,8 +192,9 @@ const Lessons = () => {
     setSubmitting(true);
     try {
       await createLesson({
+        name: lessonForm.name.trim(),
+        code: lessonForm.code.trim(),
         categorySubId: lessonForm.categorySubId,
-        orderIndex: lessonForm.orderIndex,
         isActive: lessonForm.isActive,
       });
       toast.success("Ders listesi oluşturuldu.");
@@ -203,10 +210,15 @@ const Lessons = () => {
   const handleUpdateLesson = async (e) => {
     e.preventDefault();
     if (!selected?.id) return;
+    if (!lessonForm.name?.trim() || !lessonForm.code?.trim()) {
+      toast.error("Ad ve kod zorunludur.");
+      return;
+    }
     setSubmitting(true);
     try {
       await updateLesson(selected.id, {
-        orderIndex: Number(lessonForm.orderIndex) ?? 0,
+        name: lessonForm.name.trim(),
+        code: lessonForm.code.trim(),
         isActive: lessonForm.isActive,
       });
       toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
@@ -520,7 +532,7 @@ const Lessons = () => {
               <span className="text-sm">Ders listesi içeriği</span>
               <ChevronRight size={16} />
               <span className="font-semibold text-slate-800">
-                {manageLesson.categorySubName || "Alt kategori"}
+                {manageLesson.name || manageLesson.categorySubName || "Alt kategori"}
               </span>
             </div>
             <h1 className="admin-page-title text-xl sm:text-2xl">
@@ -1106,8 +1118,9 @@ const Lessons = () => {
             <table className="admin-table">
               <thead>
                 <tr>
+                  <th>Kod</th>
+                  <th>Ad</th>
                   <th>Alt kategori</th>
-                  <th>Sıra</th>
                   <th>Durum</th>
                   <th>Oluşturulma</th>
                   <th className="text-right">İşlem</th>
@@ -1120,8 +1133,9 @@ const Lessons = () => {
                     className="cursor-pointer hover:bg-emerald-50/50"
                     onClick={() => openManage(item)}
                   >
-                    <td className="font-medium">{item.categorySubName ?? "—"}</td>
-                    <td>{item.orderIndex ?? "—"}</td>
+                    <td className="font-mono text-sm">{item.code ?? "—"}</td>
+                    <td className="font-medium">{item.name ?? "—"}</td>
+                    <td className="text-slate-600">{item.categorySubName ?? "—"}</td>
                     <td>
                       <span
                         className={
@@ -1170,13 +1184,37 @@ const Lessons = () => {
         </div>
       )}
 
-      {/* Modal: Create Lesson */}
+      {/* Modal: Create Lesson — Rapor: name, code, categorySubId, isActive */}
       {modal === "createLesson" && (
         <div className="admin-modal-backdrop" onClick={closeModal}>
           <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">Yeni ders listesi</div>
             <form onSubmit={handleCreateLesson}>
               <div className="admin-modal-body space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="admin-form-group">
+                    <label className="admin-label admin-label-required">Kod</label>
+                    <input
+                      type="text"
+                      className="admin-input"
+                      value={lessonForm.code}
+                      onChange={(e) => setLessonForm((f) => ({ ...f, code: e.target.value }))}
+                      placeholder="TR, MAT"
+                      required
+                    />
+                  </div>
+                  <div className="admin-form-group">
+                    <label className="admin-label admin-label-required">Ad</label>
+                    <input
+                      type="text"
+                      className="admin-input"
+                      value={lessonForm.name}
+                      onChange={(e) => setLessonForm((f) => ({ ...f, name: e.target.value }))}
+                      placeholder="Türkçe, Matematik"
+                      required
+                    />
+                  </div>
+                </div>
                 <div className="admin-form-group">
                   <label className="admin-label admin-label-required">Kategori</label>
                   <select
@@ -1205,16 +1243,6 @@ const Lessons = () => {
                     ))}
                   </select>
                 </div>
-                <div className="admin-form-group">
-                  <label className="admin-label">Sıra</label>
-                  <input
-                    type="number"
-                    className="admin-input"
-                    min={0}
-                    value={lessonForm.orderIndex}
-                    onChange={(e) => setLessonForm((f) => ({ ...f, orderIndex: Number(e.target.value) || 0 }))}
-                  />
-                </div>
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -1237,24 +1265,34 @@ const Lessons = () => {
         </div>
       )}
 
-      {/* Modal: Edit Lesson */}
+      {/* Modal: Edit Lesson — Rapor: name, code, isActive */}
       {modal === "editLesson" && selected && (
         <div className="admin-modal-backdrop" onClick={closeModal}>
           <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">Ders listesini düzenle</div>
             <form onSubmit={handleUpdateLesson}>
               <div className="admin-modal-body space-y-4">
-                <p className="text-sm text-slate-600">Alt kategori: <strong>{selected.categorySubName ?? selected.categorySubId}</strong></p>
                 <div className="admin-form-group">
-                  <label className="admin-label">Sıra</label>
+                  <label className="admin-label admin-label-required">Kod</label>
                   <input
-                    type="number"
+                    type="text"
                     className="admin-input"
-                    min={0}
-                    value={lessonForm.orderIndex}
-                    onChange={(e) => setLessonForm((f) => ({ ...f, orderIndex: Number(e.target.value) || 0 }))}
+                    value={lessonForm.code}
+                    onChange={(e) => setLessonForm((f) => ({ ...f, code: e.target.value }))}
+                    required
                   />
                 </div>
+                <div className="admin-form-group">
+                  <label className="admin-label admin-label-required">Ad</label>
+                  <input
+                    type="text"
+                    className="admin-input"
+                    value={lessonForm.name}
+                    onChange={(e) => setLessonForm((f) => ({ ...f, name: e.target.value }))}
+                    required
+                  />
+                </div>
+                <p className="text-sm text-slate-500">Alt kategori: <strong>{selected.categorySubName ?? selected.categorySubId}</strong></p>
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -1284,7 +1322,7 @@ const Lessons = () => {
             <div className="admin-modal-header">Ders listesini pasif yap</div>
             <div className="admin-modal-body">
               <p className="text-slate-600">
-                <strong>{selected.categorySubName ?? selected.categorySubId}</strong> ders listesini pasif yapmak istediğinize emin misiniz?
+                <strong>{selected.name ?? selected.categorySubName ?? selected.categorySubId}</strong> ders listesini pasif yapmak istediğinize emin misiniz?
               </p>
             </div>
             <div className="admin-modal-footer">

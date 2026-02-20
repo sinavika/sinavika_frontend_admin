@@ -162,22 +162,22 @@ const BookletTemplates = () => {
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!form.code?.trim() || !form.name?.trim()) {
-      toast.error("Kod ve ad zorunludur.");
+    if (!form.name?.trim()) {
+      toast.error("Ad zorunludur.");
       return;
     }
-    if (!form.categoryId || !form.categorySubId || !form.categorySectionId) {
-      toast.error("Kategori, alt kategori ve bölüm şablonu seçin.");
-      return;
-    }
-    const target = Number(form.targetQuestionCount);
-    if (isNaN(target) || target < 0) {
-      toast.error("Hedef soru sayısı 0 veya pozitif olmalıdır.");
+    if (!form.categorySubId || !form.categorySectionId) {
+      toast.error("Alt kategori ve bölüm şablonu seçin.");
       return;
     }
     setSubmitting(true);
     try {
-      await createBookletTemplate(form);
+      await createBookletTemplate({
+        categorySubId: form.categorySubId,
+        categorySectionId: form.categorySectionId,
+        name: form.name.trim(),
+        orderIndex: Number(form.orderIndex) ?? 0,
+      });
       toast.success("Booklet şablonu oluşturuldu.");
       closeModal();
       loadTemplates();
@@ -400,70 +400,31 @@ const BookletTemplates = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="admin-modal-header">Yeni kitapçık şablonu</div>
+            <p className="px-4 pt-3 text-sm text-slate-500">Raporla uyumlu: sadece ad, alt kategori, bölüm şablonu ve sıra.</p>
             <form onSubmit={handleCreate}>
               <div className="admin-modal-body space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="admin-form-group">
-                    <label className="admin-label admin-label-required">Kod</label>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      value={form.code}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, code: e.target.value }))
-                      }
-                      placeholder="Örn. TYT-MAT-01"
-                      required
-                    />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label admin-label-required">Ad</label>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      value={form.name}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, name: e.target.value }))
-                      }
-                      placeholder="Örn. TYT Matematik Bölüm Şablonu"
-                      required
-                    />
-                  </div>
-                </div>
                 <div className="admin-form-group">
-                  <label className="admin-label">Açıklama</label>
-                  <textarea
-                    className="admin-input min-h-[80px]"
-                    value={form.description}
+                  <label className="admin-label admin-label-required">Ad</label>
+                  <input
+                    type="text"
+                    className="admin-input"
+                    value={form.name}
                     onChange={(e) =>
-                      setForm((f) => ({ ...f, description: e.target.value }))
+                      setForm((f) => ({ ...f, name: e.target.value }))
                     }
-                    placeholder="Opsiyonel"
-                  />
-                </div>
-                <div className="admin-form-group">
-                  <label className="admin-label">Zorluk dağılımı (JSON)</label>
-                  <textarea
-                    className="admin-input min-h-[60px] font-mono text-sm"
-                    value={form.difficultyMix}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, difficultyMix: e.target.value }))
-                    }
-                    placeholder='{"easy":10,"medium":20,"hard":10}'
+                    placeholder="Örn. TYT Türkçe"
+                    required
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="admin-form-group">
-                    <label className="admin-label admin-label-required">
-                      Kategori
-                    </label>
+                    <label className="admin-label admin-label-required">Kategori</label>
                     <select
                       className="admin-input"
                       value={form.categoryId}
                       onChange={(e) =>
                         setForm((f) => ({ ...f, categoryId: e.target.value }))
                       }
-                      required
                     >
                       <option value="">Seçin</option>
                       {categories.map((c) => (
@@ -474,17 +435,12 @@ const BookletTemplates = () => {
                     </select>
                   </div>
                   <div className="admin-form-group">
-                    <label className="admin-label admin-label-required">
-                      Alt kategori
-                    </label>
+                    <label className="admin-label admin-label-required">Alt kategori</label>
                     <select
                       className="admin-input"
                       value={form.categorySubId}
                       onChange={(e) =>
-                        setForm((f) => ({
-                          ...f,
-                          categorySubId: e.target.value,
-                        }))
+                        setForm((f) => ({ ...f, categorySubId: e.target.value }))
                       }
                       required
                       disabled={subsLoading}
@@ -498,17 +454,12 @@ const BookletTemplates = () => {
                     </select>
                   </div>
                   <div className="admin-form-group">
-                    <label className="admin-label admin-label-required">
-                      Bölüm şablonu
-                    </label>
+                    <label className="admin-label admin-label-required">Bölüm şablonu</label>
                     <select
                       className="admin-input"
                       value={form.categorySectionId}
                       onChange={(e) =>
-                        setForm((f) => ({
-                          ...f,
-                          categorySectionId: e.target.value,
-                        }))
+                        setForm((f) => ({ ...f, categorySectionId: e.target.value }))
                       }
                       required
                       disabled={sectionsLoading}
@@ -522,52 +473,17 @@ const BookletTemplates = () => {
                     </select>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="admin-form-group">
-                    <label className="admin-label admin-label-required">
-                      Hedef soru sayısı
-                    </label>
-                    <input
-                      type="number"
-                      className="admin-input"
-                      min={0}
-                      value={form.targetQuestionCount}
-                      onChange={(e) =>
-                        setForm((f) => ({
-                          ...f,
-                          targetQuestionCount: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label">Sıra</label>
-                    <input
-                      type="number"
-                      className="admin-input"
-                      value={form.orderIndex}
-                      onChange={(e) =>
-                        setForm((f) => ({
-                          ...f,
-                          orderIndex: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="admin-form-group flex items-center gap-2">
+                <div className="admin-form-group">
+                  <label className="admin-label">Sıra</label>
                   <input
-                    type="checkbox"
-                    id="create-active"
-                    checked={form.isActive}
+                    type="number"
+                    className="admin-input w-24"
+                    min={0}
+                    value={form.orderIndex}
                     onChange={(e) =>
-                      setForm((f) => ({ ...f, isActive: e.target.checked }))
+                      setForm((f) => ({ ...f, orderIndex: e.target.value }))
                     }
-                    className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                   />
-                  <label htmlFor="create-active" className="admin-label mb-0">
-                    Aktif
-                  </label>
                 </div>
               </div>
               <div className="admin-modal-footer">

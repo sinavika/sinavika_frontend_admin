@@ -30,21 +30,16 @@ export const getBookletTemplateById = async (id) => {
 
 /**
  * Yeni booklet şablonu oluştur. POST /AdminQuestionBookletTemplate/create
- * @param {{ code: string, name: string, description?: string, difficultyMix?: string, categoryId: string, categorySubId: string, categorySectionId: string, targetQuestionCount: number, isActive?: boolean, orderIndex?: number }} data
+ * Rapor: sadece categorySubId, categorySectionId, name, orderIndex.
+ * @param {{ categorySubId: string, categorySectionId: string, name: string, orderIndex?: number }} data
  */
 export const createBookletTemplate = async (data) => {
   const response = await adminApi.post(
     "/AdminQuestionBookletTemplate/create",
     {
-      code: data.code?.trim() ?? "",
-      name: data.name?.trim() ?? "",
-      description: data.description?.trim() || undefined,
-      difficultyMix: data.difficultyMix?.trim() || undefined,
-      categoryId: data.categoryId,
       categorySubId: data.categorySubId,
       categorySectionId: data.categorySectionId,
-      targetQuestionCount: Number(data.targetQuestionCount) ?? 0,
-      isActive: data.isActive !== false,
+      name: data.name?.trim() ?? "",
       orderIndex: Number(data.orderIndex) ?? 0,
     }
   );
