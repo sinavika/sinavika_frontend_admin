@@ -6,6 +6,7 @@ import {
   BookOpen,
   Database,
   FileCheck,
+  FileText,
   LayoutTemplate,
   Tag,
   Building2,
@@ -29,8 +30,14 @@ const menuSections = [
     items: [
       { icon: FileCheck, label: "Sınavlar", path: "/admin/exams" },
       { icon: BookOpen, label: "Dersler", path: "/admin/lessons" },
-      { icon: Database, label: "Soru Havuzu", path: "/admin/question-pool" },
-      { icon: LayoutTemplate, label: "Soru Şablonları", path: "/admin/question-templates" },
+    ],
+  },
+  {
+    title: "Soru havuzu",
+    items: [
+      { icon: Database, label: "Soru havuzu", path: "/admin/question-pool" },
+      { icon: LayoutTemplate, label: "Kitapçık şablonları", path: "/admin/booklet-templates" },
+      { icon: FileText, label: "Kitapçıklar", path: "/admin/booklets" },
     ],
   },
   {

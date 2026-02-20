@@ -47,7 +47,7 @@ import {
 import { getAllCategories } from "@/services/adminCategoryService";
 import { getSubsByCategoryId } from "@/services/adminCategorySubService";
 import { getAllPublishers } from "@/services/adminPublisherService";
-import { getAllLessons } from "@/services/adminLessonService";
+import { getAllLessonMains } from "@/services/adminLessonMainService";
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from "@/constants";
 import { formatDate } from "@/utils/format";
 
@@ -164,7 +164,7 @@ const Exams = () => {
       const [catData, pubData, lessData] = await Promise.all([
         getAllCategories(),
         getAllPublishers(),
-        getAllLessons(),
+        getAllLessonMains(),
       ]);
       setCategories(Array.isArray(catData) ? catData : []);
       setPublishers(Array.isArray(pubData) ? pubData : []);

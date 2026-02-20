@@ -1,19 +1,25 @@
 // AdminLessonSubController — api/AdminLessonSub
-// Ders alt konuları: lessonId ile listele, CRUD (rapor: EXAM-LESSONSUB-QUESTIONS-TEMPLATE-API-FRONTEND.md)
+// Ders alt konuları (LessonSub): LessonMain'e bağlı ünite/ana konular
 import adminApi from "@/api/adminApi";
 
 /**
- * Ana derse göre alt konuları listele. GET /AdminLessonSub/by-lesson/{lessonId}
- * @param {string} lessonId Ders id (Guid)
+ * Bir LessonMain'e ait tüm LessonSub listesi. GET /AdminLessonSub/by-lesson-main/{lessonMainId}
+ * @param {string} lessonMainId LessonMain id (Guid)
  */
-export const getLessonSubsByLessonId = async (lessonId) => {
-  const response = await adminApi.get(`/AdminLessonSub/by-lesson/${lessonId}`);
+export const getLessonSubsByLessonMainId = async (lessonMainId) => {
+  const response = await adminApi.get(
+    `/AdminLessonSub/by-lesson-main/${lessonMainId}`
+  );
   return Array.isArray(response.data) ? response.data : [];
 };
 
+/** @deprecated Yeni yapıda LessonMain üzerinden kullanın. Eski isim: getLessonSubsByLessonId */
+export const getLessonSubsByLessonId = async (lessonMainId) => {
+  return getLessonSubsByLessonMainId(lessonMainId);
+};
+
 /**
- * Alt konu detayı. GET /AdminLessonSub/{id}
- * @param {string} id Alt konu id (Guid)
+ * LessonSub detayı. GET /AdminLessonSub/{id}
  */
 export const getLessonSubById = async (id) => {
   const response = await adminApi.get(`/AdminLessonSub/${id}`);
@@ -21,25 +27,26 @@ export const getLessonSubById = async (id) => {
 };
 
 /**
- * Alt konu oluştur. POST /AdminLessonSub/{lessonId}/create
- * @param {string} lessonId Ders id (Guid)
+ * Belirtilen LessonMain'e yeni LessonSub ekler. POST /AdminLessonSub/{lessonMainId}/create
+ * @param {string} lessonMainId LessonMain id (Guid)
  * @param {{ code: string, name: string, description?: string, orderIndex?: number, isActive?: boolean }} data
  */
-export const createLessonSub = async (lessonId, data) => {
-  const response = await adminApi.post(`/AdminLessonSub/${lessonId}/create`, {
-    code: data.code?.trim() ?? "",
-    name: data.name?.trim() ?? "",
-    description: data.description ?? null,
-    orderIndex: Number(data.orderIndex) ?? 0,
-    isActive: data.isActive !== false,
-  });
+export const createLessonSub = async (lessonMainId, data) => {
+  const response = await adminApi.post(
+    `/AdminLessonSub/${lessonMainId}/create`,
+    {
+      code: data.code?.trim() ?? "",
+      name: data.name?.trim() ?? "",
+      description: data.description?.trim() || undefined,
+      orderIndex: Number(data.orderIndex) ?? 0,
+      isActive: data.isActive !== false,
+    }
+  );
   return response.data;
 };
 
 /**
- * Alt konu güncelle. PUT /AdminLessonSub/{id}
- * @param {string} id Alt konu id (Guid)
- * @param {{ code?: string, name?: string, description?: string, orderIndex?: number, isActive?: boolean }} data
+ * LessonSub günceller. PUT /AdminLessonSub/{id}
  */
 export const updateLessonSub = async (id, data) => {
   const response = await adminApi.put(`/AdminLessonSub/${id}`, data);
@@ -47,8 +54,7 @@ export const updateLessonSub = async (id, data) => {
 };
 
 /**
- * Alt konu sil. DELETE /AdminLessonSub/{id}
- * @param {string} id Alt konu id (Guid)
+ * LessonSub siler. DELETE /AdminLessonSub/{id}
  */
 export const deleteLessonSub = async (id) => {
   const response = await adminApi.delete(`/AdminLessonSub/${id}`);
