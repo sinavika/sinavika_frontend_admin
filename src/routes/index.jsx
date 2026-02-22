@@ -8,7 +8,6 @@ import Coupons from "@/pages/admin/Coupons";
 import ReferralCampaigns from "@/pages/admin/ReferralCampaigns";
 import SubscriptionPackages from "@/pages/admin/SubscriptionPackages";
 import Publishers from "@/pages/admin/Publishers";
-import QuestionPool from "@/pages/admin/QuestionPool";
 import BookletTemplates from "@/pages/admin/BookletTemplates";
 import Booklets from "@/pages/admin/Booklets";
 import Exams from "@/pages/admin/Exams";
@@ -28,7 +27,6 @@ const AppRoutes = () => {
             <Route path="admin/categories" element={<Categories />} />
             <Route path="admin/lessons" element={<Lessons />} />
             <Route path="admin/exams" element={<Exams />} />
-            <Route path="admin/question-pool" element={<QuestionPool />} />
             <Route path="admin/booklet-templates" element={<BookletTemplates />} />
             <Route path="admin/booklets" element={<Booklets />} />
             <Route path="admin/coupons" element={<Coupons />} />

@@ -4,7 +4,6 @@ import {
   ChevronLeft,
   ChevronDown,
   BookOpen,
-  Database,
   FileCheck,
   FileText,
   LayoutTemplate,
@@ -33,9 +32,8 @@ const menuSections = [
     ],
   },
   {
-    title: "Soru havuzu",
+    title: "Kitapçıklar",
     items: [
-      { icon: Database, label: "Soru havuzu", path: "/admin/question-pool" },
       { icon: LayoutTemplate, label: "Kitapçık şablonları", path: "/admin/booklet-templates" },
       { icon: FileText, label: "Kitapçıklar", path: "/admin/booklets" },
     ],

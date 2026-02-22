@@ -1,90 +1,56 @@
 // AdminQuestionController — api/AdminQuestion
-// Soru havuzu CRUD (Rapor 12)
+// Rapor: API-QUESTIONS-CONTROLLERS-FRONTEND-RAPORU.md
 import adminApi from "@/api/adminApi";
 
 /**
- * Tüm soruları listele. GET /AdminQuestion/all
+ * Id ile soru getir. GET /AdminQuestion/{id}
  */
-export const getAllQuestions = async () => {
-  const response = await adminApi.get("/AdminQuestion/all");
-  return Array.isArray(response.data) ? response.data : [];
-};
-
-/**
- * Derse (Lesson) göre sorular. GET /AdminQuestion/by-lesson/{lessonId}
- * @param {string} lessonId Lesson id (Guid) — raporda ders = Lesson
- */
-export const getQuestionsByLessonId = async (lessonId) => {
-  const response = await adminApi.get(
-    `/AdminQuestion/by-lesson/${lessonId}`
-  );
-  return Array.isArray(response.data) ? response.data : [];
-};
-
-/**
- * Alt derse (LessonSub) göre sorular. GET /AdminQuestion/by-lesson-sub/{lessonSubId}
- */
-export const getQuestionsByLessonSubId = async (lessonSubId) => {
-  const response = await adminApi.get(
-    `/AdminQuestion/by-lesson-sub/${lessonSubId}`
-  );
-  return Array.isArray(response.data) ? response.data : [];
-};
-
-/**
- * Yayınevine göre sorular. GET /AdminQuestion/by-publisher/{publisherId}
- */
-export const getQuestionsByPublisherId = async (publisherId) => {
-  const response = await adminApi.get(
-    `/AdminQuestion/by-publisher/${publisherId}`
-  );
-  return Array.isArray(response.data) ? response.data : [];
-};
-
-/**
- * Soru oluştur. POST /AdminQuestion/create
- * Rapor 12.5: stem, lessonId, lessonSubId?, publisherId?, options[], correctOptionKey
- * @param {{ stem: string, lessonId: string, lessonSubId?: string, publisherId?: string, options: Array<{ key: string, text: string }>, correctOptionKey: string }} data
- */
-export const createQuestion = async (data) => {
-  const response = await adminApi.post("/AdminQuestion/create", {
-    stem: data.stem?.trim() ?? "",
-    lessonId: data.lessonId ?? null,
-    lessonSubId: data.lessonSubId ?? null,
-    publisherId: data.publisherId ?? null,
-    options: Array.isArray(data.options) ? data.options : [],
-    correctOptionKey: data.correctOptionKey?.trim() ?? "",
-  });
+export const getQuestionById = async (id) => {
+  const response = await adminApi.get(`/AdminQuestion/${id}`);
   return response.data;
 };
 
 /**
- * Soru detayı (şıklar dahil). GET /AdminQuestion?id={id}&includeOptions=true
+ * Code ile soru getir. GET /AdminQuestion/by-code/{code}
  */
-export const getQuestionById = async (id, includeOptions = true) => {
+export const getQuestionByCode = async (code) => {
+  const response = await adminApi.get(
+    `/AdminQuestion/by-code/${encodeURIComponent(code)}`
+  );
+  return response.data;
+};
+
+/**
+ * Soruları sayfalı listele (filtreli). GET /AdminQuestion?skip=0&take=20&lessonSubId=&publisherId=
+ * @param {{ skip?: number, take?: number, lessonSubId?: string, publisherId?: string }} params
+ */
+export const getQuestionsPaginated = async (params = {}) => {
+  const { skip = 0, take = 20, lessonSubId, publisherId } = params;
   const response = await adminApi.get("/AdminQuestion", {
-    params: { id, includeOptions: includeOptions ? "true" : undefined },
+    params: { skip, take, lessonSubId: lessonSubId || "", publisherId: publisherId || "" },
   });
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 /**
- * Soru güncelle. PUT /AdminQuestion/update?id={id}
- * Body: QuestionUpdateDto (stem, lessonId, lessonSubId?, publisherId?, options?, correctOptionKey?)
+ * Kitapçık bölümüne soru ekle. POST /AdminQuestion/add-to-booklet
+ * Body: QuestionBookletCreateDto (2.3 ile aynı)
+ * @param {{
+ *   examId: string,
+ *   examSectionId?: string,
+ *   lessonId: string,
+ *   name: string,
+ *   orderIndex?: number,
+ *   questionsTemplateId?: string,
+ *   questionTemplateItemId?: string,
+ *   stem: string,
+ *   options: Array<{ optionKey: string, text: string, orderIndex: number }>,
+ *   correctOptionKey: string,
+ *   lessonSubId?: string,
+ *   publisherId?: string
+ * }} data
  */
-export const updateQuestion = async (id, data) => {
-  const response = await adminApi.put("/AdminQuestion/update", data, {
-    params: { id },
-  });
-  return response.data;
-};
-
-/**
- * Soru sil. DELETE /AdminQuestion/delete?id={id}
- */
-export const deleteQuestion = async (id) => {
-  const response = await adminApi.delete("/AdminQuestion/delete", {
-    params: { id },
-  });
+export const addQuestionToBooklet = async (data) => {
+  const response = await adminApi.post("/AdminQuestion/add-to-booklet", data);
   return response.data;
 };

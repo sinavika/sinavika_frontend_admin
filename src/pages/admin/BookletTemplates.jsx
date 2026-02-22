@@ -25,6 +25,7 @@ const defaultForm = () => ({
   targetQuestionCount: 40,
   isActive: true,
   orderIndex: 0,
+  questionsTemplateId: "",
 });
 
 const BookletTemplates = () => {
@@ -126,11 +127,12 @@ const BookletTemplates = () => {
         difficultyMix:
           typeof detail.difficultyMix === "string"
             ? detail.difficultyMix
-            : JSON.stringify(detail.difficultyMix || {}, null, 2),
+            : (detail.difficultyMix ?? ""),
         categoryId: detail.categoryId ?? "",
         categorySubId: detail.categorySubId ?? "",
         categorySectionId: detail.categorySectionId ?? "",
         targetQuestionCount: detail.targetQuestionCount ?? 40,
+        totalQuestionCount: detail.totalQuestionCount ?? "",
         isActive: detail.isActive !== false,
         orderIndex: detail.orderIndex ?? 0,
       });
@@ -173,12 +175,19 @@ const BookletTemplates = () => {
     setSubmitting(true);
     try {
       await createBookletTemplate({
+        code: form.code?.trim() || null,
+        name: form.name.trim(),
+        description: form.description?.trim() || null,
+        difficultyMix: form.difficultyMix?.trim() || null,
+        categoryId: form.categoryId || null,
         categorySubId: form.categorySubId,
         categorySectionId: form.categorySectionId,
-        name: form.name.trim(),
+        targetQuestionCount: Number(form.targetQuestionCount) ?? 0,
+        isActive: form.isActive !== false,
         orderIndex: Number(form.orderIndex) ?? 0,
+        questionsTemplateId: form.questionsTemplateId || null,
       });
-      toast.success("Booklet şablonu oluşturuldu.");
+      toast.success("Kitapçık şablonu oluşturuldu.");
       closeModal();
       loadTemplates();
     } catch (err) {
@@ -198,12 +207,12 @@ const BookletTemplates = () => {
     setSubmitting(true);
     try {
       await updateBookletTemplate(selected.id, {
-        code: form.code.trim(),
+        code: form.code?.trim() || null,
         name: form.name.trim(),
         description: form.description?.trim() || null,
         difficultyMix: form.difficultyMix?.trim() || null,
         targetQuestionCount: Number(form.targetQuestionCount) ?? 0,
-        totalQuestionCount: Number(form.targetQuestionCount) ?? 0,
+        totalQuestionCount: form.totalQuestionCount != null ? Number(form.totalQuestionCount) : null,
         isActive: form.isActive,
         orderIndex: Number(form.orderIndex) ?? 0,
       });
@@ -400,20 +409,46 @@ const BookletTemplates = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="admin-modal-header">Yeni kitapçık şablonu</div>
-            <p className="px-4 pt-3 text-sm text-slate-500">Raporla uyumlu: sadece ad, alt kategori, bölüm şablonu ve sıra.</p>
+            <p className="px-4 pt-3 text-sm text-slate-500">questionsTemplateId boş ise yeni şablon seti oluşturulur; dolu ise mevcut sete bölüm eklenir.</p>
             <form onSubmit={handleCreate}>
               <div className="admin-modal-body space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="admin-form-group">
+                    <label className="admin-label">Kod</label>
+                    <input
+                      type="text"
+                      className="admin-input"
+                      value={form.code}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, code: e.target.value }))
+                      }
+                      placeholder="Örn. TPL-MAT-01"
+                    />
+                  </div>
+                  <div className="admin-form-group">
+                    <label className="admin-label admin-label-required">Ad</label>
+                    <input
+                      type="text"
+                      className="admin-input"
+                      value={form.name}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, name: e.target.value }))
+                      }
+                      placeholder="Örn. Matematik Bölüm 1"
+                      required
+                    />
+                  </div>
+                </div>
                 <div className="admin-form-group">
-                  <label className="admin-label admin-label-required">Ad</label>
+                  <label className="admin-label">Açıklama</label>
                   <input
                     type="text"
                     className="admin-input"
-                    value={form.name}
+                    value={form.description}
                     onChange={(e) =>
-                      setForm((f) => ({ ...f, name: e.target.value }))
+                      setForm((f) => ({ ...f, description: e.target.value }))
                     }
-                    placeholder="Örn. TYT Türkçe"
-                    required
+                    placeholder="Opsiyonel"
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -473,17 +508,85 @@ const BookletTemplates = () => {
                     </select>
                   </div>
                 </div>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                  <div className="admin-form-group">
+                    <label className="admin-label">Zorluk dağılımı</label>
+                    <select
+                      className="admin-input"
+                      value={form.difficultyMix}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, difficultyMix: e.target.value }))
+                      }
+                    >
+                      <option value="">—</option>
+                      <option value="Easy">Easy</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Hard">Hard</option>
+                    </select>
+                  </div>
+                  <div className="admin-form-group">
+                    <label className="admin-label">Hedef soru sayısı</label>
+                    <input
+                      type="number"
+                      className="admin-input"
+                      min={0}
+                      value={form.targetQuestionCount}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, targetQuestionCount: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="admin-form-group">
+                    <label className="admin-label">Sıra</label>
+                    <input
+                      type="number"
+                      className="admin-input w-24"
+                      min={0}
+                      value={form.orderIndex}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, orderIndex: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="admin-form-group flex items-center gap-2 pt-8">
+                    <input
+                      type="checkbox"
+                      id="create-active"
+                      checked={form.isActive}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, isActive: e.target.checked }))
+                      }
+                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <label htmlFor="create-active" className="admin-label mb-0">Aktif</label>
+                  </div>
+                </div>
                 <div className="admin-form-group">
-                  <label className="admin-label">Sıra</label>
-                  <input
-                    type="number"
-                    className="admin-input w-24"
-                    min={0}
-                    value={form.orderIndex}
+                  <label className="admin-label">Mevcut şablon seti (opsiyonel)</label>
+                  <select
+                    className="admin-input"
+                    value={form.questionsTemplateId || ""}
                     onChange={(e) =>
-                      setForm((f) => ({ ...f, orderIndex: e.target.value }))
+                      setForm((f) => ({ ...f, questionsTemplateId: e.target.value || null }))
                     }
-                  />
+                  >
+                    <option value="">Yeni set oluştur</option>
+                    {list
+                      .filter((t) => t.questionsTemplateId)
+                      .reduce((acc, t) => {
+                        if (!acc.find((x) => x === t.questionsTemplateId))
+                          acc.push(t.questionsTemplateId);
+                        return acc;
+                      }, [])
+                      .map((tid) => {
+                        const first = list.find((t) => t.questionsTemplateId === tid);
+                        return (
+                          <option key={tid} value={tid}>
+                            {first?.name ?? tid}
+                          </option>
+                        );
+                      })}
+                  </select>
                 </div>
               </div>
               <div className="admin-modal-footer">

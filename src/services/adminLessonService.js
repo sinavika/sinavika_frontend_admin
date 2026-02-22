@@ -31,6 +31,7 @@ export const createLesson = async (data) => {
     isActive: data.isActive !== false,
   });
   return response.data;
+  
 };
 
 /**

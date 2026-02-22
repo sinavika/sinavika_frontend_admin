@@ -1,9 +1,9 @@
 // AdminQuestionBookletController — api/AdminQuestionBooklet
-// Booklet (soru kitapçığı) CRUD, havuzdan soru ekleme, toplu yükleme
+// Rapor: API-QUESTIONS-CONTROLLERS-FRONTEND-RAPORU.md — kitapçık satırları, soru ekleme (içerikle)
 import adminApi from "@/api/adminApi";
 
 /**
- * Sınava ait booklet kayıtlarını listele. GET /AdminQuestionBooklet/by-exam/{examId}
+ * Sınava ait kitapçık satırlarını listele. GET /AdminQuestionBooklet/by-exam/{examId}
  */
 export const getBookletsByExamId = async (examId) => {
   const response = await adminApi.get(
@@ -13,17 +13,7 @@ export const getBookletsByExamId = async (examId) => {
 };
 
 /**
- * Bölüme ait booklet kayıtlarını listele. GET /AdminQuestionBooklet/by-section/{examSectionId}
- */
-export const getBookletsBySectionId = async (examSectionId) => {
-  const response = await adminApi.get(
-    `/AdminQuestionBooklet/by-section/${examSectionId}`
-  );
-  return Array.isArray(response.data) ? response.data : [];
-};
-
-/**
- * Booklet kaydı detayı. GET /AdminQuestionBooklet/{id}
+ * Kitapçık satırı detayı. GET /AdminQuestionBooklet/{id}
  */
 export const getBookletById = async (id) => {
   const response = await adminApi.get(`/AdminQuestionBooklet/${id}`);
@@ -31,113 +21,34 @@ export const getBookletById = async (id) => {
 };
 
 /**
- * Booklet'e soru ekle (questionId veya questionCode). POST /AdminQuestionBooklet/add
- * @param {{ examId: string, examSectionId: string, lessonId: string, name?: string, orderIndex?: number, questionsTemplateId?: string, questionTemplateItemId?: string, questionId?: string, questionCode?: string }} data
+ * Kitapçık bölümüne yeni soru ekle (içerikle). POST /AdminQuestionBooklet/add-question
+ * stem, options, correctOptionKey zorunlu; examSectionId veya questionsTemplateId belirtilmeli.
+ * @param {{
+ *   examId: string,
+ *   examSectionId?: string,
+ *   lessonId: string,
+ *   name: string,
+ *   orderIndex?: number,
+ *   questionsTemplateId?: string,
+ *   questionTemplateItemId?: string,
+ *   stem: string,
+ *   options: Array<{ optionKey: string, text: string, orderIndex: number }>,
+ *   correctOptionKey: string,
+ *   lessonSubId?: string,
+ *   publisherId?: string
+ * }} data
  */
 export const addQuestionToBooklet = async (data) => {
-  const response = await adminApi.post("/AdminQuestionBooklet/add", data);
-  return response.data;
-};
-
-/**
- * Code ile booklet'e soru ekle. POST /AdminQuestionBooklet/add-by-code
- * @param {{ examId: string, examSectionId: string, questionCode: string, orderIndex?: number, questionsTemplateId?: string, questionTemplateItemId?: string }} data
- */
-export const addQuestionToBookletByCode = async (data) => {
   const response = await adminApi.post(
-    "/AdminQuestionBooklet/add-by-code",
+    "/AdminQuestionBooklet/add-question",
     data
   );
   return response.data;
 };
 
 /**
- * Booklet kaydının sırasını güncelle. PUT /AdminQuestionBooklet/{id}/order
- * @param {string} id
- * @param {{ orderIndex: number }} data
- */
-export const updateBookletOrder = async (id, data) => {
-  const response = await adminApi.put(
-    `/AdminQuestionBooklet/${id}/order`,
-    data
-  );
-  return response.data;
-};
-
-/**
- * Booklet kaydını kaldır. DELETE /AdminQuestionBooklet/{id}
+ * Kitapçıktan soru satırını kaldır. DELETE /AdminQuestionBooklet/{id}
  */
 export const deleteBookletItem = async (id) => {
-  const response = await adminApi.delete(`/AdminQuestionBooklet/${id}`);
-  return response.data;
-};
-
-/**
- * JSON ile toplu soru yükleme (havuza). POST /AdminQuestionBooklet/bulk-import/json
- * Body: { json: string } — JSON dizisi string olarak
- * @param {{ json: string }} data
- */
-export const bulkImportJson = async (data) => {
-  const response = await adminApi.post(
-    "/AdminQuestionBooklet/bulk-import/json",
-    data
-  );
-  return response.data;
-};
-
-/**
- * Excel ile toplu soru yükleme (havuza). POST /AdminQuestionBooklet/bulk-import/excel
- * Content-Type: multipart/form-data, key: file
- * @param {File} file .xlsx dosyası
- */
-export const bulkImportExcel = async (file) => {
-  const formData = new FormData();
-  formData.append("file", file);
-  const response = await adminApi.post(
-    "/AdminQuestionBooklet/bulk-import/excel",
-    formData
-  );
-  return response.data;
-};
-
-/**
- * PDF ile toplu soru yükleme (havuza). POST /AdminQuestionBooklet/bulk-import/pdf
- * Rapor 14.10: multipart file, lessonId (zorunlu), lessonSubId?, publisherId?
- * @param {File} file PDF dosyası
- * @param {{ lessonId: string, lessonSubId?: string, publisherId?: string }} params
- */
-export const bulkImportPdf = async (file, params = {}) => {
-  const formData = new FormData();
-  formData.append("file", file);
-  if (params.lessonId) formData.append("lessonId", params.lessonId);
-  if (params.lessonSubId != null && params.lessonSubId !== "")
-    formData.append("lessonSubId", params.lessonSubId);
-  if (params.publisherId != null && params.publisherId !== "")
-    formData.append("publisherId", params.publisherId);
-  const response = await adminApi.post(
-    "/AdminQuestionBooklet/bulk-import/pdf",
-    formData
-  );
-  return response.data;
-};
-
-/**
- * Word (.docx) ile toplu soru yükleme (havuza). POST /AdminQuestionBooklet/bulk-import/word
- * Rapor 14.11: multipart file, lessonId (zorunlu), lessonSubId?, publisherId?
- * @param {File} file .docx dosyası
- * @param {{ lessonId: string, lessonSubId?: string, publisherId?: string }} params
- */
-export const bulkImportWord = async (file, params = {}) => {
-  const formData = new FormData();
-  formData.append("file", file);
-  if (params.lessonId) formData.append("lessonId", params.lessonId);
-  if (params.lessonSubId != null && params.lessonSubId !== "")
-    formData.append("lessonSubId", params.lessonSubId);
-  if (params.publisherId != null && params.publisherId !== "")
-    formData.append("publisherId", params.publisherId);
-  const response = await adminApi.post(
-    "/AdminQuestionBooklet/bulk-import/word",
-    formData
-  );
-  return response.data;
+  await adminApi.delete(`/AdminQuestionBooklet/${id}`);
 };

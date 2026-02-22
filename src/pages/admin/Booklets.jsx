@@ -4,25 +4,31 @@ import {
   Trash2,
   ChevronDown,
   ChevronRight,
-  ChevronUp,
-  Upload,
-  FileJson,
-  BookOpen,
+  Plus,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { getAllExams } from "@/services/adminExamService";
 import { getSectionsByExamId } from "@/services/adminExamSectionService";
-import {
-  getBookletsByExamId,
-  addQuestionToBookletByCode,
-  updateBookletOrder,
-  deleteBookletItem,
-  bulkImportJson,
-  bulkImportExcel,
-  bulkImportPdf,
-  bulkImportWord,
-} from "@/services/adminBookletService";
+import { getBookletsByExamId, addQuestionToBooklet, deleteBookletItem } from "@/services/adminBookletService";
+import { getAllLessons } from "@/services/adminLessonService";
 import { ERROR_MESSAGES } from "@/constants";
+
+const OPTION_KEYS = ["A", "B", "C", "D", "E"];
+
+const defaultAddForm = () => ({
+  examSectionId: "",
+  questionsTemplateId: "",
+  lessonId: "",
+  name: "",
+  orderIndex: 0,
+  stem: "",
+  options: OPTION_KEYS.slice(0, 4).map((key, i) => ({
+    optionKey: key,
+    text: "",
+    orderIndex: i + 1,
+  })),
+  correctOptionKey: "A",
+});
 
 const Booklets = () => {
   const [exams, setExams] = useState([]);
@@ -31,25 +37,13 @@ const Booklets = () => {
   const [booklets, setBooklets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [bookletsLoading, setBookletsLoading] = useState(false);
-  const [addCodeSectionId, setAddCodeSectionId] = useState(null);
-  const [addCodeValue, setAddCodeValue] = useState("");
-  const [addCodeSubmitting, setAddCodeSubmitting] = useState(false);
-  const [orderSubmitting, setOrderSubmitting] = useState(null);
-  const [deleteSubmitting, setDeleteSubmitting] = useState(null);
-  const [bulkTab, setBulkTab] = useState("json"); // "json" | "excel" | "pdf" | "word"
-  const [bulkJson, setBulkJson] = useState("");
-  const [bulkFile, setBulkFile] = useState(null);
-  const [bulkLessonId, setBulkLessonId] = useState("");
-  const [bulkLessonSubId, setBulkLessonSubId] = useState("");
-  const [bulkPublisherId, setBulkPublisherId] = useState("");
-  const [bulkSubmitting, setBulkSubmitting] = useState(false);
-  const [bulkResult, setBulkResult] = useState(null);
+  const [lessons, setLessons] = useState([]);
   const [expandedSectionId, setExpandedSectionId] = useState(null);
-  const [firstLoadDone, setFirstLoadDone] = useState(false);
-
-  useEffect(() => {
-    setBulkFile(null);
-  }, [bulkTab]);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [addForm, setAddForm] = useState(defaultAddForm);
+  const [addSectionId, setAddSectionId] = useState(null);
+  const [addSubmitting, setAddSubmitting] = useState(false);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(null);
 
   const loadExams = async () => {
     setLoading(true);
@@ -66,6 +60,9 @@ const Booklets = () => {
 
   useEffect(() => {
     loadExams();
+    getAllLessons()
+      .then((data) => setLessons(Array.isArray(data) ? data : []))
+      .catch(() => setLessons([]));
   }, []);
 
   useEffect(() => {
@@ -75,20 +72,16 @@ const Booklets = () => {
       setExpandedSectionId(null);
       return;
     }
-    setFirstLoadDone(false);
     setBookletsLoading(true);
     Promise.all([
       getSectionsByExamId(selectedExam.id),
       getBookletsByExamId(selectedExam.id),
     ])
       .then(([secData, bookData]) => {
-        const secList = Array.isArray(secData) ? secData : [];
-        setSections(secList);
+        setSections(Array.isArray(secData) ? secData : []);
         setBooklets(Array.isArray(bookData) ? bookData : []);
-        if (secList.length > 0 && !firstLoadDone) {
-          setExpandedSectionId(secList[0].id);
-          setFirstLoadDone(true);
-        }
+        if (secData?.length > 0 && !expandedSectionId)
+          setExpandedSectionId(secData[0].id);
       })
       .catch((err) => {
         toast.error(err.message || ERROR_MESSAGES.FETCH_FAILED);
@@ -98,67 +91,86 @@ const Booklets = () => {
       .finally(() => setBookletsLoading(false));
   }, [selectedExam?.id]);
 
-  const bookletsBySection = sections.map((sec) => ({
-    section: sec,
-    items: booklets
-      .filter((b) => String(b.examSectionId) === String(sec.id))
-      .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0)),
-  }));
+  const bookletsBySection = sections.map((sec) => {
+    const sectionOrTemplateId = sec.questionsTemplateId || sec.id;
+    return {
+      section: sec,
+      items: booklets
+        .filter((b) => String(b.examSectionId) === String(sectionOrTemplateId))
+        .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0)),
+    };
+  });
 
-  const getSectionName = (section) => {
-    return section?.name || `Bölüm ${section?.orderIndex ?? ""}`.trim() || section?.id;
+  const getSectionName = (section) =>
+    section?.name ?? `Bölüm ${section?.orderIndex ?? ""}`.trim() ?? section?.id;
+
+  const openAddModal = (section) => {
+    const sectionOrTemplateId = section?.questionsTemplateId || section?.id;
+    setAddSectionId(section?.id);
+    setAddForm({
+      ...defaultAddForm(),
+      examSectionId: sectionOrTemplateId || "",
+      questionsTemplateId: section?.questionsTemplateId || "",
+      orderIndex: booklets.filter((b) => String(b.examSectionId) === String(sectionOrTemplateId)).length,
+    });
+    setAddModalOpen(true);
   };
 
-  const handleAddByCode = async (examSectionId) => {
-    const code = addCodeValue?.trim();
-    if (!code || !selectedExam?.id) {
-      toast.error("Soru kodu girin.");
+  const closeAddModal = () => {
+    setAddModalOpen(false);
+    setAddSectionId(null);
+    setAddForm(defaultAddForm());
+  };
+
+  const handleAddQuestion = async (e) => {
+    e.preventDefault();
+    if (!selectedExam?.id) return;
+    if (!addForm.stem?.trim()) {
+      toast.error("Soru metni (stem) zorunludur.");
       return;
     }
-    setAddCodeSubmitting(true);
+    const options = addForm.options
+      .filter((o) => o.text?.trim())
+      .map((o, i) => ({ ...o, orderIndex: i + 1 }));
+    if (options.length < 2) {
+      toast.error("En az 2 şık girin.");
+      return;
+    }
+    if (!addForm.correctOptionKey || !options.some((o) => o.optionKey === addForm.correctOptionKey)) {
+      toast.error("Doğru şık seçin.");
+      return;
+    }
+    if (!addForm.examSectionId && !addForm.questionsTemplateId) {
+      toast.error("Bölüm şablonu (examSectionId veya questionsTemplateId) belirtin.");
+      return;
+    }
+    if (!addForm.lessonId?.trim()) {
+      toast.error("Ders seçin.");
+      return;
+    }
+    setAddSubmitting(true);
     try {
-      await addQuestionToBookletByCode({
+      await addQuestionToBooklet({
         examId: selectedExam.id,
-        examSectionId,
-        questionCode: code,
+        examSectionId: addForm.examSectionId || undefined,
+        questionsTemplateId: addForm.questionsTemplateId || undefined,
+        lessonId: addForm.lessonId.trim(),
+        name: addForm.name?.trim() || "Soru",
+        orderIndex: addForm.orderIndex ?? 0,
+        stem: addForm.stem.trim(),
+        options,
+        correctOptionKey: addForm.correctOptionKey,
+        lessonSubId: undefined,
+        publisherId: undefined,
       });
       toast.success("Soru kitapçığa eklendi.");
-      setAddCodeValue("");
-      setAddCodeSectionId(null);
+      closeAddModal();
       const data = await getBookletsByExamId(selectedExam.id);
       setBooklets(Array.isArray(data) ? data : []);
     } catch (err) {
       toast.error(err.message || "Soru eklenemedi.");
     } finally {
-      setAddCodeSubmitting(false);
-    }
-  };
-
-  const handleMoveOrder = async (item, direction) => {
-    const sectionItems = booklets
-      .filter((b) => String(b.examSectionId) === String(item.examSectionId))
-      .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
-    const idx = sectionItems.findIndex((i) => i.id === item.id);
-    if (idx < 0) return;
-    const current = sectionItems[idx].orderIndex ?? 0;
-    const newIndex =
-      direction === "up"
-        ? Math.max(0, current - 1)
-        : Math.min(
-            sectionItems.length - 1,
-            current + 1
-          );
-    if (newIndex === current) return;
-    setOrderSubmitting(item.id);
-    try {
-      await updateBookletOrder(item.id, { orderIndex: newIndex });
-      toast.success("Sıra güncellendi.");
-      const data = await getBookletsByExamId(selectedExam.id);
-      setBooklets(Array.isArray(data) ? data : []);
-    } catch (err) {
-      toast.error(err.message || "Sıra güncellenemedi.");
-    } finally {
-      setOrderSubmitting(null);
+      setAddSubmitting(false);
     }
   };
 
@@ -166,7 +178,7 @@ const Booklets = () => {
     setDeleteSubmitting(item.id);
     try {
       await deleteBookletItem(item.id);
-      toast.success("Kayıt kaldırıldı.");
+      toast.success("Kitapçık satırı kaldırıldı.");
       const data = await getBookletsByExamId(selectedExam.id);
       setBooklets(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -176,116 +188,13 @@ const Booklets = () => {
     }
   };
 
-  const handleBulkImportJson = async (e) => {
-    e.preventDefault();
-    const raw = bulkJson?.trim();
-    if (!raw) {
-      toast.error("JSON metni girin.");
-      return;
-    }
-    setBulkSubmitting(true);
-    setBulkResult(null);
-    try {
-      const result = await bulkImportJson({ json: raw });
-      setBulkResult(result);
-      toast.success(
-        `${result?.createdCount ?? 0} soru havuzuna eklendi.`
-      );
-      if (result?.errorCount > 0 && result?.errors?.length) {
-        result.errors.forEach((err) => toast.error(err));
-      }
-    } catch (err) {
-      toast.error(err.message || "Toplu yükleme başarısız.");
-    } finally {
-      setBulkSubmitting(false);
-    }
-  };
-
-  const handleBulkImportExcel = async (e) => {
-    e.preventDefault();
-    if (!bulkFile) {
-      toast.error("Excel dosyası seçin.");
-      return;
-    }
-    setBulkSubmitting(true);
-    setBulkResult(null);
-    try {
-      const result = await bulkImportExcel(bulkFile);
-      setBulkResult(result);
-      toast.success(
-        `${result?.createdCount ?? 0} soru havuzuna eklendi.`
-      );
-      setBulkFile(null);
-      if (result?.errorCount > 0 && result?.errors?.length) {
-        result.errors.forEach((err) => toast.error(err));
-      }
-    } catch (err) {
-      toast.error(err.message || "Toplu yükleme başarısız.");
-    } finally {
-      setBulkSubmitting(false);
-    }
-  };
-
-  const handleBulkImportPdf = async (e) => {
-    e.preventDefault();
-    if (!bulkFile) {
-      toast.error("PDF dosyası seçin.");
-      return;
-    }
-    if (!bulkLessonId?.trim()) {
-      toast.error("Ders (LessonId) zorunludur.");
-      return;
-    }
-    setBulkSubmitting(true);
-    setBulkResult(null);
-    try {
-      const result = await bulkImportPdf(bulkFile, {
-        lessonId: bulkLessonId.trim(),
-        lessonSubId: bulkLessonSubId?.trim() || undefined,
-        publisherId: bulkPublisherId?.trim() || undefined,
-      });
-      setBulkResult(result);
-      toast.success(`${result?.createdCount ?? 0} soru havuzuna eklendi.`);
-      setBulkFile(null);
-      if (result?.errorCount > 0 && result?.errors?.length) {
-        result.errors.forEach((err) => toast.error(err));
-      }
-    } catch (err) {
-      toast.error(err.message || "Toplu yükleme başarısız.");
-    } finally {
-      setBulkSubmitting(false);
-    }
-  };
-
-  const handleBulkImportWord = async (e) => {
-    e.preventDefault();
-    if (!bulkFile) {
-      toast.error("Word (.docx) dosyası seçin.");
-      return;
-    }
-    if (!bulkLessonId?.trim()) {
-      toast.error("Ders (LessonId) zorunludur.");
-      return;
-    }
-    setBulkSubmitting(true);
-    setBulkResult(null);
-    try {
-      const result = await bulkImportWord(bulkFile, {
-        lessonId: bulkLessonId.trim(),
-        lessonSubId: bulkLessonSubId?.trim() || undefined,
-        publisherId: bulkPublisherId?.trim() || undefined,
-      });
-      setBulkResult(result);
-      toast.success(`${result?.createdCount ?? 0} soru havuzuna eklendi.`);
-      setBulkFile(null);
-      if (result?.errorCount > 0 && result?.errors?.length) {
-        result.errors.forEach((err) => toast.error(err));
-      }
-    } catch (err) {
-      toast.error(err.message || "Toplu yükleme başarısız.");
-    } finally {
-      setBulkSubmitting(false);
-    }
+  const setOptionText = (index, text) => {
+    setAddForm((f) => ({
+      ...f,
+      options: f.options.map((o, i) =>
+        i === index ? { ...o, text } : o
+      ),
+    }));
   };
 
   return (
@@ -297,12 +206,11 @@ const Booklets = () => {
             Kitapçıklar
           </h1>
           <p className="text-slate-500 text-sm">
-            Sınava göre kitapçık sorularını yönetin veya soru havuzuna toplu yükleme yapın.
+            Sınava göre kitapçık satırlarını yönetin; bölüme soru ekleyin (stem, şıklar, doğru cevap).
           </p>
         </div>
       </div>
 
-      {/* Sınav seçimi */}
       <div className="admin-card p-4 mb-4">
         <label className="admin-label mb-2 block">Sınav seçin</label>
         <select
@@ -329,7 +237,7 @@ const Booklets = () => {
         </div>
       ) : !selectedExam ? (
         <div className="admin-empty-state rounded-xl">
-          <BookOpen size={48} className="mx-auto mb-3 text-slate-300" />
+          <FileText size={48} className="mx-auto mb-3 text-slate-300" />
           <p className="font-medium text-slate-600">
             Kitapçık içeriğini görmek için yukarıdan bir sınav seçin.
           </p>
@@ -345,16 +253,16 @@ const Booklets = () => {
               key={section.id}
               className="admin-card admin-card-elevated overflow-hidden"
             >
-              <button
-                type="button"
-                className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50/80 transition-colors"
-                onClick={() =>
-                  setExpandedSectionId((id) =>
-                    id === section.id ? null : section.id
-                  )
-                }
-              >
-                <div className="flex items-center gap-2">
+              <div className="w-full flex items-center justify-between p-4 border-b border-slate-200">
+                <button
+                  type="button"
+                  className="flex items-center gap-2 text-left hover:opacity-90"
+                  onClick={() =>
+                    setExpandedSectionId((id) =>
+                      id === section.id ? null : section.id
+                    )
+                  }
+                >
                   {expandedSectionId === section.id ? (
                     <ChevronDown size={20} className="text-slate-500" />
                   ) : (
@@ -366,93 +274,49 @@ const Booklets = () => {
                   <span className="admin-badge admin-badge-neutral text-xs">
                     {items.length} soru
                   </span>
-                </div>
-              </button>
+                </button>
+                <button
+                  type="button"
+                  className="admin-btn admin-btn-primary"
+                  onClick={() => openAddModal(section)}
+                >
+                  <Plus size={18} />
+                  Soru ekle
+                </button>
+              </div>
               {expandedSectionId === section.id && (
                 <div className="border-t border-slate-200 bg-slate-50/50">
-                  <div className="p-4 flex flex-wrap items-center gap-2 border-b border-slate-200">
-                    <input
-                      type="text"
-                      className="admin-input flex-1 min-w-[200px] max-w-xs"
-                      placeholder="Soru kodu (örn. MAT123456)"
-                      value={
-                        addCodeSectionId === section.id ? addCodeValue : ""
-                      }
-                      onChange={(e) => {
-                        setAddCodeSectionId(section.id);
-                        setAddCodeValue(e.target.value);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleAddByCode(section.id);
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="admin-btn admin-btn-primary"
-                      disabled={addCodeSubmitting}
-                      onClick={() => handleAddByCode(section.id)}
-                    >
-                      {addCodeSubmitting ? "Ekleniyor…" : "Soru ekle"}
-                    </button>
-                  </div>
                   <div className="admin-table-wrapper">
                     <table className="admin-table">
                       <thead>
                         <tr>
-                          <th className="w-10">Sıra</th>
+                          <th className="w-12">Sıra</th>
                           <th>Kod</th>
                           <th>Soru metni</th>
                           <th>Ders</th>
+                          <th>Doğru</th>
                           <th className="text-right w-28">İşlem</th>
                         </tr>
                       </thead>
                       <tbody>
                         {items.length === 0 ? (
                           <tr>
-                            <td colSpan={5} className="text-center text-slate-500 py-6">
-                              Bu bölümde henüz soru yok. Yukarıdan soru kodu ile ekleyin.
+                            <td colSpan={6} className="text-center text-slate-500 py-6">
+                              Bu bölümde henüz soru yok. &quot;Soru ekle&quot; ile ekleyin.
                             </td>
                           </tr>
                         ) : (
                           items.map((item) => (
                             <tr key={item.id}>
-                              <td>
-                                <div className="flex items-center gap-0.5">
-                                  <button
-                                    type="button"
-                                    className="admin-btn admin-btn-ghost admin-btn-icon p-1"
-                                    onClick={() => handleMoveOrder(item, "up")}
-                                    disabled={orderSubmitting === item.id || items.findIndex((i) => i.id === item.id) === 0}
-                                    title="Yukarı taşı"
-                                  >
-                                    <ChevronUp size={16} className="text-slate-500" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="admin-btn admin-btn-ghost admin-btn-icon p-1"
-                                    onClick={() => handleMoveOrder(item, "down")}
-                                    disabled={orderSubmitting === item.id || items.findIndex((i) => i.id === item.id) === items.length - 1}
-                                    title="Aşağı taşı"
-                                  >
-                                    <ChevronDown size={16} className="text-slate-500" />
-                                  </button>
-                                  <span className="text-slate-500 text-sm w-6 ml-1">
-                                    {item.orderIndex ?? "—"}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="font-mono text-sm">
-                                {item.questionCode ?? "—"}
-                              </td>
+                              <td>{item.orderIndex ?? "—"}</td>
+                              <td className="font-mono text-sm">{item.questionCode ?? "—"}</td>
                               <td className="max-w-xs truncate text-slate-700" title={item.stem}>
-                                {item.stem ? `${item.stem.slice(0, 80)}${item.stem.length > 80 ? "…" : ""}` : "—"}
+                                {item.stem
+                                  ? `${item.stem.slice(0, 80)}${item.stem.length > 80 ? "…" : ""}`
+                                  : "—"}
                               </td>
-                              <td className="text-slate-600 text-sm">
-                                {item.lessonName ?? "—"}
-                              </td>
+                              <td className="text-slate-600 text-sm">{item.lessonName ?? "—"}</td>
+                              <td className="font-medium">{item.correctOptionKey ?? "—"}</td>
                               <td className="text-right">
                                 <button
                                   type="button"
@@ -474,242 +338,138 @@ const Booklets = () => {
               )}
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Toplu soru yükleme (havuza) */}
-      <div className="mt-10 admin-card admin-card-elevated overflow-hidden">
-        <div className="p-4 border-b border-slate-200 bg-slate-50/50">
-          <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-            <Upload size={20} className="text-emerald-600" />
-            Soru havuzuna toplu yükleme
-          </h2>
-          <p className="text-sm text-slate-500 mt-1">
-            JSON, Excel, PDF veya Word ile soruları havuza ekleyin. Kitapçığa eklemek için yukarıdan &quot;Soru ekle&quot; kullanın.
-          </p>
-        </div>
-        <div className="p-4">
-          <div className="flex flex-wrap gap-2 border-b border-slate-200 mb-4">
-            <button
-              type="button"
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-                bulkTab === "json"
-                  ? "bg-emerald-500 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-              onClick={() => setBulkTab("json")}
-            >
-              <FileJson size={16} className="inline mr-2" />
-              JSON
-            </button>
-            <button
-              type="button"
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-                bulkTab === "excel"
-                  ? "bg-emerald-500 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-              onClick={() => setBulkTab("excel")}
-            >
-              <Upload size={16} className="inline mr-2" />
-              Excel
-            </button>
-            <button
-              type="button"
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-                bulkTab === "pdf"
-                  ? "bg-emerald-500 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-              onClick={() => setBulkTab("pdf")}
-            >
-              <FileText size={16} className="inline mr-2" />
-              PDF
-            </button>
-            <button
-              type="button"
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-                bulkTab === "word"
-                  ? "bg-emerald-500 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-              onClick={() => setBulkTab("word")}
-            >
-              <BookOpen size={16} className="inline mr-2" />
-              Word
-            </button>
-          </div>
-
-          {bulkTab === "json" && (
-            <form onSubmit={handleBulkImportJson} className="space-y-4">
-              <div className="admin-form-group">
-                <label className="admin-label">
-                  JSON dizisi (her eleman: stem, options, correctOptionKey, lessonId, lessonSubId?, publisherId?)
-                </label>
-                <textarea
-                  className="admin-input min-h-[200px] font-mono text-sm"
-                  value={bulkJson}
-                  onChange={(e) => setBulkJson(e.target.value)}
-                  placeholder={'[{"stem":"2+2 kaçtır?","options":[{"optionKey":"A","text":"3"},{"optionKey":"B","text":"4"}],"correctOptionKey":"B","lessonId":"..."}]'}
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={bulkSubmitting}
-                className="admin-btn admin-btn-primary"
-              >
-                {bulkSubmitting ? "Yükleniyor…" : "Havuza yükle"}
-              </button>
-            </form>
-          )}
-
-          {bulkTab === "excel" && (
-            <form onSubmit={handleBulkImportExcel} className="space-y-4">
-              <div className="admin-form-group">
-                <label className="admin-label">Excel dosyası (.xlsx)</label>
-                <input
-                  type="file"
-                  accept=".xlsx"
-                  className="admin-input"
-                  onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
-                />
-                <p className="text-xs text-slate-500 mt-1">
-                  Sütunlar: Stem, OptionA, OptionB, OptionC, OptionD, OptionE, CorrectOptionKey, LessonId, LessonSubId, PublisherId
-                </p>
-              </div>
-              <button
-                type="submit"
-                disabled={bulkSubmitting || !bulkFile}
-                className="admin-btn admin-btn-primary"
-              >
-                {bulkSubmitting ? "Yükleniyor…" : "Havuza yükle"}
-              </button>
-            </form>
-          )}
-
-          {bulkTab === "pdf" && (
-            <form onSubmit={handleBulkImportPdf} className="space-y-4">
-              <div className="admin-form-group">
-                <label className="admin-label admin-label-required">PDF dosyası</label>
-                <input
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  className="admin-input"
-                  onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
-                />
-              </div>
-              <div className="admin-form-group">
-                <label className="admin-label admin-label-required">Ders (LessonId)</label>
-                <input
-                  type="text"
-                  className="admin-input"
-                  placeholder="Guid"
-                  value={bulkLessonId}
-                  onChange={(e) => setBulkLessonId(e.target.value)}
-                />
-              </div>
-              <div className="admin-form-group">
-                <label className="admin-label">Alt ders (LessonSubId)</label>
-                <input
-                  type="text"
-                  className="admin-input"
-                  placeholder="Opsiyonel"
-                  value={bulkLessonSubId}
-                  onChange={(e) => setBulkLessonSubId(e.target.value)}
-                />
-              </div>
-              <div className="admin-form-group">
-                <label className="admin-label">Yayınevi (PublisherId)</label>
-                <input
-                  type="text"
-                  className="admin-input"
-                  placeholder="Opsiyonel"
-                  value={bulkPublisherId}
-                  onChange={(e) => setBulkPublisherId(e.target.value)}
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={bulkSubmitting || !bulkFile || !bulkLessonId?.trim()}
-                className="admin-btn admin-btn-primary"
-              >
-                {bulkSubmitting ? "Yükleniyor…" : "Havuza yükle"}
-              </button>
-            </form>
-          )}
-
-          {bulkTab === "word" && (
-            <form onSubmit={handleBulkImportWord} className="space-y-4">
-              <div className="admin-form-group">
-                <label className="admin-label admin-label-required">Word dosyası (.docx)</label>
-                <input
-                  type="file"
-                  accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                  className="admin-input"
-                  onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
-                />
-              </div>
-              <div className="admin-form-group">
-                <label className="admin-label admin-label-required">Ders (LessonId)</label>
-                <input
-                  type="text"
-                  className="admin-input"
-                  placeholder="Guid"
-                  value={bulkLessonId}
-                  onChange={(e) => setBulkLessonId(e.target.value)}
-                />
-              </div>
-              <div className="admin-form-group">
-                <label className="admin-label">Alt ders (LessonSubId)</label>
-                <input
-                  type="text"
-                  className="admin-input"
-                  placeholder="Opsiyonel"
-                  value={bulkLessonSubId}
-                  onChange={(e) => setBulkLessonSubId(e.target.value)}
-                />
-              </div>
-              <div className="admin-form-group">
-                <label className="admin-label">Yayınevi (PublisherId)</label>
-                <input
-                  type="text"
-                  className="admin-input"
-                  placeholder="Opsiyonel"
-                  value={bulkPublisherId}
-                  onChange={(e) => setBulkPublisherId(e.target.value)}
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={bulkSubmitting || !bulkFile || !bulkLessonId?.trim()}
-                className="admin-btn admin-btn-primary"
-              >
-                {bulkSubmitting ? "Yükleniyor…" : "Havuza yükle"}
-              </button>
-            </form>
-          )}
-
-          {bulkResult && (
-            <div className="mt-4 p-4 rounded-lg bg-slate-100 border border-slate-200">
-              <p className="font-medium text-slate-700">Sonuç</p>
-              <p className="text-sm text-slate-600">
-                Toplam: {bulkResult.totalRows ?? 0}, Oluşturulan:{" "}
-                {bulkResult.createdCount ?? 0}, Hata: {bulkResult.errorCount ?? 0}
+          {sections.length === 0 && (
+            <div className="admin-empty-state rounded-xl">
+              <p className="text-slate-600">
+                Bu sınav için henüz bölüm atanmamış. Önce sınav bölümlerini (şablon atama) tanımlayın.
               </p>
-              {bulkResult.errors?.length > 0 && (
-                <ul className="mt-2 text-sm text-red-600 list-disc list-inside">
-                  {bulkResult.errors.slice(0, 5).map((err, i) => (
-                    <li key={i}>{err}</li>
-                  ))}
-                  {bulkResult.errors.length > 5 && (
-                    <li>… ve {bulkResult.errors.length - 5} hata daha</li>
-                  )}
-                </ul>
-              )}
             </div>
           )}
         </div>
-      </div>
+      )}
+
+      {/* Modal: Soru ekle */}
+      {addModalOpen && (
+        <div className="admin-modal-backdrop" onClick={closeAddModal}>
+          <div
+            className="admin-modal admin-modal-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="admin-modal-header">Kitapçık bölümüne soru ekle</div>
+            <form onSubmit={handleAddQuestion}>
+              <div className="admin-modal-body space-y-4">
+                <div className="admin-form-group">
+                  <label className="admin-label admin-label-required">Soru metni (stem)</label>
+                  <textarea
+                    className="admin-input min-h-[100px]"
+                    value={addForm.stem}
+                    onChange={(e) =>
+                      setAddForm((f) => ({ ...f, stem: e.target.value }))
+                    }
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="admin-form-group">
+                    <label className="admin-label admin-label-required">Ders</label>
+                    <select
+                      className="admin-input"
+                      value={addForm.lessonId}
+                      onChange={(e) =>
+                        setAddForm((f) => ({ ...f, lessonId: e.target.value }))
+                      }
+                      required
+                    >
+                      <option value="">Seçin</option>
+                      {lessons.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="admin-form-group">
+                    <label className="admin-label">Bölüm adı (name)</label>
+                    <input
+                      type="text"
+                      className="admin-input"
+                      value={addForm.name}
+                      onChange={(e) =>
+                        setAddForm((f) => ({ ...f, name: e.target.value }))
+                      }
+                      placeholder="Örn. Türkçe"
+                    />
+                  </div>
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label">Sıra (orderIndex)</label>
+                  <input
+                    type="number"
+                    className="admin-input w-24"
+                    min={0}
+                    value={addForm.orderIndex}
+                    onChange={(e) =>
+                      setAddForm((f) => ({
+                        ...f,
+                        orderIndex: parseInt(e.target.value, 10) || 0,
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="admin-label block mb-2">Şıklar</label>
+                  <div className="space-y-2">
+                    {addForm.options.map((opt, index) => (
+                      <div key={opt.optionKey} className="flex items-center gap-2">
+                        <span className="w-6 font-medium text-slate-600">{opt.optionKey}.</span>
+                        <input
+                          type="text"
+                          className="admin-input flex-1"
+                          value={opt.text}
+                          onChange={(e) => setOptionText(index, e.target.value)}
+                          placeholder={`Şık ${opt.optionKey} metni`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label admin-label-required">Doğru şık</label>
+                  <select
+                    className="admin-input w-24"
+                    value={addForm.correctOptionKey}
+                    onChange={(e) =>
+                      setAddForm((f) => ({ ...f, correctOptionKey: e.target.value }))
+                    }
+                  >
+                    {addForm.options.map((o) => (
+                      <option key={o.optionKey} value={o.optionKey}>
+                        {o.optionKey}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="admin-modal-footer">
+                <button
+                  type="button"
+                  onClick={closeAddModal}
+                  className="admin-btn admin-btn-secondary"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  disabled={addSubmitting}
+                  className="admin-btn admin-btn-primary"
+                >
+                  {addSubmitting ? "Ekleniyor…" : "Ekle"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
