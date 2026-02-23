@@ -120,14 +120,20 @@ const Booklets = () => {
     section?.name ?? `Bölüm ${section?.orderIndex ?? ""}`.trim() ?? section?.id;
 
   const openAddModal = (section) => {
-    const sectionOrTemplateId = section?.questionsTemplateId || section?.id;
+    // Doc: add-question için bölüm şablonu Id = QuestionBookletTemplate.Id zorunlu (şablona göre ekleme).
+    const templateRowId = section?.questionsTemplateId;
+    if (!templateRowId) {
+      toast.error("Bu bölüm için kitapçık şablonu atanmamış. Sınavlar > Yönet > Şablon ata ile önce bir kitapçık şablonu atayın.");
+      return;
+    }
+    const sectionOrTemplateId = templateRowId || section?.id;
     setAddSectionId(section?.id);
     setAddSectionName(getSectionName(section));
     setAddForm({
       ...defaultAddForm(),
-      examSectionId: sectionOrTemplateId || "",
-      questionsTemplateId: section?.questionsTemplateId || "",
-      orderIndex: booklets.filter((b) => String(b.examSectionId) === String(sectionOrTemplateId)).length,
+      examSectionId: templateRowId,
+      questionsTemplateId: templateRowId,
+      orderIndex: booklets.filter((b) => String(b.examSectionId) === String(sectionOrTemplateId) || String(b.questionsTemplateId) === String(templateRowId)).length,
     });
     setAddModalOpen(true);
   };
@@ -157,8 +163,9 @@ const Booklets = () => {
       toast.error("Doğru şık seçin.");
       return;
     }
-    if (!addForm.examSectionId && !addForm.questionsTemplateId) {
-      toast.error("Bölüm şablonu (examSectionId veya questionsTemplateId) belirtin.");
+    const templateRowId = addForm.questionsTemplateId || addForm.examSectionId;
+    if (!templateRowId) {
+      toast.error("Bölüm şablonu (kitapçık şablonu) belirtilmeli. Bu bölüm için Sınavlar > Yönet üzerinden şablon atayın.");
       return;
     }
     if (!addForm.lessonId?.trim()) {
@@ -169,8 +176,8 @@ const Booklets = () => {
     try {
       await addQuestionToBooklet({
         examId: selectedExam.id,
-        examSectionId: addForm.examSectionId || undefined,
-        questionsTemplateId: addForm.questionsTemplateId || undefined,
+        examSectionId: templateRowId,
+        questionsTemplateId: templateRowId,
         lessonId: addForm.lessonId.trim(),
         name: addForm.name?.trim() || "Soru",
         orderIndex: addForm.orderIndex ?? 0,
@@ -223,7 +230,7 @@ const Booklets = () => {
             Kitapçıklar
           </h1>
           <p className="text-slate-500 text-sm">
-            Sınav seçin, bölümlere soru ekleyerek öğrenci kitapçığını oluşturun. Önce Kitapçık şablonları ve Sınavlar sayfasında şablon ataması yapılmış olmalı.
+            Sınav seçin; bölümler sınava atanan kitapçık şablonlarına göre listelenir. Sorular şablona göre ilgili bölüme eklenir. Önce Kitapçık şablonları tanımlayıp Sınavlar &gt; Yönet ile şablon ataması yapın.
           </p>
         </div>
       </div>
@@ -311,11 +318,18 @@ const Booklets = () => {
                       ({targetQuestionCount - items.length} soru daha ekleyin)
                     </span>
                   )}
+                  {!section.questionsTemplateId && (
+                    <span className="text-xs text-amber-600 font-medium" title="Soru eklemek için Sınavlar > Yönet ile kitapçık şablonu atayın">
+                      (şablon atanmamış)
+                    </span>
+                  )}
                 </button>
                 <button
                   type="button"
                   className="admin-btn admin-btn-primary shrink-0"
                   onClick={() => openAddModal(section)}
+                  disabled={!section.questionsTemplateId}
+                  title={section.questionsTemplateId ? "Bu bölüme soru ekle (şablona göre)" : "Önce Sınavlar > Yönet ile kitapçık şablonu atayın"}
                 >
                   <Plus size={18} />
                   Soru ekle
@@ -381,7 +395,7 @@ const Booklets = () => {
                 Bu sınav için henüz bölüm atanmamış.
               </p>
               <p className="text-sm mt-1 text-slate-500">
-                Önce sınav bölümlerini (şablon atama) tanımlayın; ardından buradan bölümlere soru ekleyebilirsiniz.
+                Önce Sınavlar sayfasında sınavı seçip Yönet Bölümler üzerinden kitapçık şablonu atayın; bölümler şablona göre listelenir ve bölümlere soru ekleyebilirsiniz.
               </p>
             </div>
           )}
