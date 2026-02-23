@@ -1,9 +1,10 @@
 // AdminLessonController — api/AdminLesson
-// Rapor (ADMIN-API-GIDIS-DONUS): create/update'te name, code, categorySubId, isActive
+// Rapor: API-LESSONS-CONTROLLERS-FRONTEND-RAPORU.md
+// Ders listesi (Lesson): categorySubId, name, orderIndex, isActive — code yok
 import adminApi from "@/api/adminApi";
 
 /**
- * Tüm Lesson listesini döner. GET /AdminLesson/all
+ * Tüm ders listelerini getir. GET /AdminLesson/all
  */
 export const getAllLessons = async () => {
   const response = await adminApi.get("/AdminLesson/all");
@@ -11,7 +12,17 @@ export const getAllLessons = async () => {
 };
 
 /**
- * Id ile tek Lesson detayı. GET /AdminLesson?id={id}
+ * Alt kategoriye göre ders listelerini getir. GET /AdminLesson/by-category-sub/{categorySubId}
+ */
+export const getLessonsByCategorySubId = async (categorySubId) => {
+  const response = await adminApi.get(
+    `/AdminLesson/by-category-sub/${categorySubId}`
+  );
+  return Array.isArray(response.data) ? response.data : [];
+};
+
+/**
+ * Id ile ders listesi detayı. GET /AdminLesson?id={id}
  */
 export const getLessonById = async (id) => {
   const response = await adminApi.get("/AdminLesson", { params: { id } });
@@ -19,25 +30,22 @@ export const getLessonById = async (id) => {
 };
 
 /**
- * Yeni Lesson oluşturur. POST /AdminLesson/create
- * Rapor: name, code, categorySubId, isActive
- * @param {{ name: string, code: string, categorySubId: string, isActive?: boolean }} data
+ * Ders listesi oluştur. POST /AdminLesson/create
+ * Body: categorySubId, name, orderIndex, isActive
  */
 export const createLesson = async (data) => {
   const response = await adminApi.post("/AdminLesson/create", {
-    name: data.name?.trim() ?? "",
-    code: data.code?.trim() ?? "",
     categorySubId: data.categorySubId,
+    name: data.name?.trim() ?? "",
+    orderIndex: Number(data.orderIndex) ?? 0,
     isActive: data.isActive !== false,
   });
   return response.data;
-  
 };
 
 /**
- * Lesson günceller. PUT /AdminLesson/update?id={id}
- * Rapor: name, code, isActive
- * @param {{ name?: string, code?: string, isActive?: boolean }} data
+ * Ders listesini güncelle. PUT /AdminLesson/update?id={id}
+ * Body: name, orderIndex, isActive (opsiyonel)
  */
 export const updateLesson = async (id, data) => {
   const response = await adminApi.put("/AdminLesson/update", data, {
@@ -47,7 +55,7 @@ export const updateLesson = async (id, data) => {
 };
 
 /**
- * Lesson'ı pasif yapar (soft delete). DELETE /AdminLesson/delete?id={id}
+ * Ders listesini pasif yap (soft delete). DELETE /AdminLesson/delete?id={id}
  */
 export const deleteLesson = async (id) => {
   const response = await adminApi.delete("/AdminLesson/delete", {

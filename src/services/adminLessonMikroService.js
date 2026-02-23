@@ -21,15 +21,14 @@ export const getLessonMikroById = async (id) => {
 };
 
 /**
- * Mikro konu oluştur. POST /AdminLessonMikro/{lessonSubId}/create
- * Rapor: LessonMikroCreateDto (name, code, orderIndex, isActive).
- * @param {string} lessonSubId Alt konu id (Guid)
- * @param {{ code: string, name: string, orderIndex?: number, isActive?: boolean }} data
+ * Alt konuya yeni mikro konu ekle. POST /AdminLessonMikro/{lessonSubId}/create
+ * Body: code, name, description, orderIndex, isActive (code ve name zorunlu)
  */
 export const createLessonMikro = async (lessonSubId, data) => {
   const response = await adminApi.post(`/AdminLessonMikro/${lessonSubId}/create`, {
-    name: data.name?.trim() ?? "",
     code: data.code?.trim() ?? "",
+    name: data.name?.trim() ?? "",
+    description: data.description?.trim() || null,
     orderIndex: Number(data.orderIndex) ?? 0,
     isActive: data.isActive !== false,
   });

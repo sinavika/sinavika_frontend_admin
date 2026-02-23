@@ -22,17 +22,16 @@ export const getLessonMainById = async (id) => {
 };
 
 /**
- * Belirtilen Lesson altında yeni LessonMain oluşturur. POST /AdminLessonMain/{lessonId}/create
- * Rapor 7.3: body name, code, orderIndex, isActive.
- * @param {string} lessonId
- * @param {{ code: string, name: string, orderIndex?: number, isActive?: boolean }} data
+ * Ders listesine yeni ders içeriği (LessonMain) ekle. POST /AdminLessonMain/{lessonId}/create
+ * Body: code, name, description, orderIndex, isActive
  */
 export const createLessonMain = async (lessonId, data) => {
   const response = await adminApi.post(
     `/AdminLessonMain/${lessonId}/create`,
     {
-      name: data.name?.trim() ?? "",
       code: data.code?.trim() ?? "",
+      name: data.name?.trim() ?? "",
+      description: data.description?.trim() || null,
       orderIndex: Number(data.orderIndex) ?? 0,
       isActive: data.isActive !== false,
     }
