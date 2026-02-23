@@ -359,15 +359,16 @@ const Categories = () => {
       await createCategorySection({
         categorySubId: sectionSub.id,
         lessonId: sectionForm.lessonId,
-        lessonSubId: sectionForm.lessonSubId?.trim() || undefined,
+        lessonMainId: sectionForm.lessonMainId ?? null,
+        lessonSubId: sectionForm.lessonSubId?.trim() || null,
         name: sectionForm.name.trim(),
         orderIndex: Number(sectionForm.orderIndex) ?? 0,
         questionCount: Number(sectionForm.questionCount) ?? 0,
-        durationMinutes: sectionForm.durationMinutes != null && sectionForm.durationMinutes !== "" ? Number(sectionForm.durationMinutes) : undefined,
+        durationMinutes: sectionForm.durationMinutes != null && sectionForm.durationMinutes !== "" ? Number(sectionForm.durationMinutes) : null,
         minQuestions: Number(sectionForm.minQuestions) ?? 35,
         maxQuestions: Number(sectionForm.maxQuestions) ?? 45,
-        targetQuestions: sectionForm.targetQuestions != null && sectionForm.targetQuestions !== "" ? Number(sectionForm.targetQuestions) : undefined,
-        difficultyMix: sectionForm.difficultyMix?.trim() || undefined,
+        targetQuestions: sectionForm.targetQuestions != null && sectionForm.targetQuestions !== "" ? Number(sectionForm.targetQuestions) : null,
+        difficultyMix: sectionForm.difficultyMix?.trim() || null,
       });
       toast.success("Bölüm şablonu eklendi.");
       setSectionForm(defaultSectionForm());
@@ -383,13 +384,17 @@ const Categories = () => {
     if (!sectionEditId) return;
     setSectionSubmitting(true);
     try {
-      // Rapor 5.5: update body sadece lessonId, name, orderIndex, questionCount, durationMinutes
       await updateCategorySection(sectionEditId, {
         lessonId: sectionForm.lessonId || undefined,
+        lessonSubId: sectionForm.lessonSubId?.trim() || undefined,
         name: sectionForm.name?.trim() || undefined,
         orderIndex: Number(sectionForm.orderIndex),
         questionCount: Number(sectionForm.questionCount),
         durationMinutes: sectionForm.durationMinutes != null && sectionForm.durationMinutes !== "" ? Number(sectionForm.durationMinutes) : undefined,
+        minQuestions: sectionForm.minQuestions != null ? Number(sectionForm.minQuestions) : undefined,
+        maxQuestions: sectionForm.maxQuestions != null ? Number(sectionForm.maxQuestions) : undefined,
+        targetQuestions: sectionForm.targetQuestions != null && sectionForm.targetQuestions !== "" ? Number(sectionForm.targetQuestions) : undefined,
+        difficultyMix: sectionForm.difficultyMix?.trim() || undefined,
       });
       toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
       setSectionEditId(null);

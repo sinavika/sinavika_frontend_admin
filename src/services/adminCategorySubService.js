@@ -1,5 +1,5 @@
-// Solution1 Admin CategorySub (Alt Kategori) API
-// Base: GET/POST/PUT/DELETE /api/AdminCategorySub
+// AdminCategorySubController — api/AdminCategorySub
+// Doc: docs/Categories/01-Categories-Controllers-Tanitim.md, 02-Categories-API-Endpoints-Detay.md
 import adminApi from "@/api/adminApi";
 
 /**

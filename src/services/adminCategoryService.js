@@ -1,4 +1,5 @@
-// Solution1 Admin Category API
+// AdminCategoryController — api/AdminCategory
+// Doc: docs/Categories/01-Categories-Controllers-Tanitim.md, 02-Categories-API-Endpoints-Detay.md
 import adminApi from "@/api/adminApi";
 
 /**
@@ -6,7 +7,7 @@ import adminApi from "@/api/adminApi";
  */
 export const getAllCategories = async () => {
   const response = await adminApi.get("/AdminCategory/all");
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 /**
