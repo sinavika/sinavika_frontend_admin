@@ -216,16 +216,25 @@ const Booklets = () => {
 
   return (
     <div className="admin-page-wrapper">
-      <div className="admin-page-header admin-page-header-gradient flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+      <div className="admin-page-header admin-page-header-gradient flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="flex flex-col gap-1">
           <h1 className="admin-page-title">
             <FileText size={28} className="text-emerald-600 shrink-0" />
             Kitapçıklar
           </h1>
           <p className="text-slate-500 text-sm">
-            Sınav seçin; bölümlere soru ekleyerek öğrenci kitapçığını oluşturun.
+            Sınav seçin, bölümlere soru ekleyerek öğrenci kitapçığını oluşturun. Önce Kitapçık şablonları ve Sınavlar sayfasında şablon ataması yapılmış olmalı.
           </p>
         </div>
+      </div>
+
+      <div className="admin-booklet-flow mb-6">
+        <strong>Adımlar:</strong>
+        <span className="admin-booklet-flow-step">Sınav seçin</span>
+        <span className="text-slate-500">→</span>
+        <span className="admin-booklet-flow-step">Bölümü açın</span>
+        <span className="text-slate-500">→</span>
+        <span className="admin-booklet-flow-step">Soru ekle ile yeni soru girin veya mevcut soruları yönetin</span>
       </div>
 
       <div className="admin-card p-4 mb-6 rounded-xl border border-slate-200 shadow-sm">
@@ -267,15 +276,17 @@ const Booklets = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          {bookletsBySection.map(({ section, items, targetQuestionCount }) => (
+          {bookletsBySection.map(({ section, items, targetQuestionCount }) => {
+            const isFull = targetQuestionCount != null && items.length >= targetQuestionCount;
+            return (
             <div
               key={section.id}
-              className="admin-card admin-card-elevated overflow-hidden rounded-lg shadow-sm border border-slate-200"
+              className="admin-booklet-section-card"
             >
-              <div className="w-full flex items-center justify-between p-4 border-b border-slate-200">
+              <div className="admin-booklet-section-header">
                 <button
                   type="button"
-                  className="flex items-center gap-2 text-left hover:opacity-90 transition-opacity"
+                  className="flex items-center gap-2 text-left hover:opacity-90 transition-opacity flex-1 min-w-0"
                   onClick={() =>
                     setExpandedSectionId((id) =>
                       id === section.id ? null : section.id
@@ -287,16 +298,16 @@ const Booklets = () => {
                   ) : (
                     <ChevronRight size={20} className="text-slate-500 shrink-0" />
                   )}
-                  <span className="font-semibold text-slate-800">
+                  <span className="font-semibold text-slate-800 truncate">
                     {getSectionName(section)}
                   </span>
-                  <span className="admin-badge admin-badge-neutral text-xs tabular-nums">
+                  <span className={`admin-badge text-xs tabular-nums ${isFull ? "admin-badge-success" : "admin-badge-neutral"}`}>
                     {targetQuestionCount != null
                       ? `${items.length} / ${targetQuestionCount} soru`
                       : `${items.length} soru`}
                   </span>
                   {targetQuestionCount != null && items.length < targetQuestionCount && (
-                    <span className="text-xs text-amber-600">
+                    <span className="text-xs text-amber-600 font-medium">
                       ({targetQuestionCount - items.length} soru daha ekleyin)
                     </span>
                   )}
@@ -311,9 +322,9 @@ const Booklets = () => {
                 </button>
               </div>
               {expandedSectionId === section.id && (
-                <div className="border-t border-slate-200 bg-slate-50/50">
+                <div className="admin-booklet-section-body">
                   <div className="admin-table-wrapper">
-                    <table className="admin-table">
+                    <table className="admin-table admin-booklet-table-row-hover">
                       <thead>
                         <tr>
                           <th className="w-12 admin-table-header-gradient">Sıra</th>
@@ -363,7 +374,7 @@ const Booklets = () => {
                 </div>
               )}
             </div>
-          ))}
+          );})}
           {sections.length === 0 && (
             <div className="admin-empty-state rounded-xl py-12">
               <p className="font-medium text-slate-600">
@@ -390,16 +401,18 @@ const Booklets = () => {
             <form onSubmit={handleAddQuestion}>
               <div className="admin-modal-body space-y-4">
                 <div className="admin-form-group">
-                  <label className="admin-label admin-label-required">Soru metni (stem)</label>
+                  <label className="admin-label admin-label-required">Soru metni</label>
                   <textarea
                     className="admin-input min-h-[100px]"
                     value={addForm.stem}
                     onChange={(e) =>
                       setAddForm((f) => ({ ...f, stem: e.target.value }))
                     }
+                    placeholder="Soruyu buraya yazın..."
                     required
                   />
                 </div>
+                <div className="admin-form-divider" />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="admin-form-group">
                     <label className="admin-label admin-label-required">Ders</label>
@@ -420,7 +433,7 @@ const Booklets = () => {
                     </select>
                   </div>
                   <div className="admin-form-group">
-                    <label className="admin-label">Bölüm adı (name)</label>
+                    <label className="admin-label">Satır adı (opsiyonel)</label>
                     <input
                       type="text"
                       className="admin-input"
@@ -428,12 +441,12 @@ const Booklets = () => {
                       onChange={(e) =>
                         setAddForm((f) => ({ ...f, name: e.target.value }))
                       }
-                      placeholder="Örn. Türkçe"
+                      placeholder="Örn. Matematik - Soru 1"
                     />
                   </div>
                 </div>
                 <div className="admin-form-group">
-                  <label className="admin-label">Sıra (orderIndex)</label>
+                  <label className="admin-label">Sıra no</label>
                   <input
                     type="number"
                     className="admin-input w-24"
@@ -447,8 +460,9 @@ const Booklets = () => {
                     }
                   />
                 </div>
+                <div className="admin-form-divider" />
                 <div>
-                  <label className="admin-label block mb-2">Şıklar</label>
+                  <label className="admin-label block mb-2">Şıklar (en az 2 dolu olmalı)</label>
                   <div className="space-y-2">
                     {addForm.options.map((opt, index) => (
                       <div key={opt.optionKey} className="flex items-center gap-2">
@@ -458,7 +472,7 @@ const Booklets = () => {
                           className="admin-input flex-1"
                           value={opt.text}
                           onChange={(e) => setOptionText(index, e.target.value)}
-                          placeholder={`Şık ${opt.optionKey} metni`}
+                          placeholder={`Şık ${opt.optionKey}`}
                         />
                       </div>
                     ))}

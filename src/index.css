@@ -257,4 +257,70 @@
     justify-content: flex-end;
     gap: 0.25rem;
   }
+
+  /* Kitapçık / sınav admin sayfaları — UX odaklı */
+  .admin-booklet-flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 1rem;
+    padding: 0.875rem 1rem;
+    background: linear-gradient(135deg, rgb(236 253 245) 0%, rgb(240 253 250) 100%);
+    border: 1px solid rgb(167 243 208);
+    border-radius: 0.75rem;
+    font-size: 0.8125rem;
+    color: rgb(5 46 22);
+  }
+  .admin-booklet-flow strong { color: rgb(4 120 87); }
+  .admin-booklet-flow .admin-booklet-flow-step {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.5rem;
+    background: rgb(255 255 255 / 0.8);
+    border-radius: 0.5rem;
+  }
+  .admin-booklet-section-card {
+    border-radius: 0.75rem;
+    border: 1px solid rgb(226 232 240);
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06);
+    overflow: hidden;
+    transition: box-shadow 150ms, border-color 150ms;
+  }
+  .admin-booklet-section-card:hover {
+    border-color: rgb(203 213 225);
+    box-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.08);
+  }
+  .admin-booklet-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    background: linear-gradient(to right, rgb(248 250 252), rgb(241 245 249));
+    border-bottom: 1px solid rgb(226 232 240);
+  }
+  .admin-booklet-section-body {
+    background: rgb(255 255 255);
+  }
+  .admin-booklet-table-row-hover tbody tr:hover {
+    background: rgb(236 253 245 / 0.4);
+  }
+  .admin-booklet-progress-text {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: rgb(100 116 139);
+  }
+  .admin-booklet-progress-full {
+    color: rgb(5 150 105);
+  }
+  .admin-booklet-progress-warn {
+    color: rgb(180 83 9);
+  }
+  .admin-form-divider {
+    height: 1px;
+    background: rgb(226 232 240);
+    margin: 1rem 0;
+  }
 }

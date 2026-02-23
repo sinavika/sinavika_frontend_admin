@@ -33,7 +33,7 @@ import {
   deleteSection,
 } from "@/services/adminExamSectionService";
 import { getSectionsBySubId } from "@/services/adminCategorySectionService";
-import { getTemplatesByCategorySubId } from "@/services/adminQuestionsTemplateService";
+import { getBookletTemplatesByCategorySubId } from "@/services/adminBookletTemplateService";
 import {
   getQuotasBySectionId,
   createQuota,
@@ -570,7 +570,7 @@ const Exams = () => {
         getSectionsByExamId(item.id),
         getAssignmentsByExamId(item.id),
         categorySubId ? getSectionsBySubId(categorySubId) : Promise.resolve([]),
-        categorySubId ? getTemplatesByCategorySubId(categorySubId) : Promise.resolve([]),
+        categorySubId ? getBookletTemplatesByCategorySubId(categorySubId) : Promise.resolve([]),
       ]);
       const secs = Array.isArray(sections) ? sections : [];
       setManageSections(secs);
@@ -1210,7 +1210,7 @@ const Exams = () => {
                           <select className="admin-input" value={assignForm.questionsTemplateId} onChange={(e) => setAssignForm((f) => ({ ...f, questionsTemplateId: e.target.value }))} required>
                             <option value="">Seçin</option>
                             {questionTemplatesForAssign.map((qt) => (
-                              <option key={qt.id} value={qt.id}>{qt.name} ({qt.totalQuestionCount ?? 0} soru)</option>
+                              <option key={qt.id} value={qt.id}>{qt.name} (hedef: {qt.targetQuestionCount ?? qt.totalQuestionCount ?? 0} soru)</option>
                             ))}
                           </select>
                         </div>

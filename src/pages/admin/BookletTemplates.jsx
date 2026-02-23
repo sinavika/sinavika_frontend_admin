@@ -164,12 +164,16 @@ const BookletTemplates = () => {
 
   const handleCreate = async (e) => {
     e.preventDefault();
+    if (!form.code?.trim()) {
+      toast.error("Kod zorunludur.");
+      return;
+    }
     if (!form.name?.trim()) {
       toast.error("Ad zorunludur.");
       return;
     }
-    if (!form.categorySubId || !form.categorySectionId) {
-      toast.error("Alt kategori ve bölüm şablonu seçin.");
+    if (!form.categoryId || !form.categorySubId || !form.categorySectionId) {
+      toast.error("Kategori, alt kategori ve bölüm şablonu seçin.");
       return;
     }
     setSubmitting(true);
@@ -271,7 +275,7 @@ const BookletTemplates = () => {
             Kitapçık şablonları
           </h1>
           <p className="text-slate-500 text-sm">
-            Şablon setleri ve bölüm satırları tanımlayın (hangi bölüm, kaç soru). Sınavlar bu şablonlara göre kitapçık oluşturur.
+            Öğrenci sınavları için bölüm şablonları tanımlayın: hangi bölümde kaç soru olacak. Sınav oluşturduktan sonra bu şablonlara göre kitapçığa soru eklersiniz.
           </p>
         </div>
         <button
@@ -282,6 +286,17 @@ const BookletTemplates = () => {
           <Plus size={18} />
           Yeni şablon
         </button>
+      </div>
+
+      <div className="admin-booklet-flow mb-6">
+        <strong>İşlem sırası:</strong>
+        <span className="admin-booklet-flow-step">1. Şablon seti / bölüm satırları (bu sayfa)</span>
+        <span className="text-slate-500">→</span>
+        <span className="admin-booklet-flow-step">2. Sınav oluştur (Sınavlar)</span>
+        <span className="text-slate-500">→</span>
+        <span className="admin-booklet-flow-step">3. Sınava şablon ata (Sınav → Yönet)</span>
+        <span className="text-slate-500">→</span>
+        <span className="admin-booklet-flow-step">4. Kitapçıklara soru ekle (Kitapçıklar)</span>
       </div>
 
       {/* Filtre */}
@@ -348,13 +363,15 @@ const BookletTemplates = () => {
       ) : (
         <div className="space-y-6">
           {templateSets.map(({ setId, setName, rows }) => (
-            <div key={setId} className="admin-card admin-card-elevated overflow-hidden rounded-lg shadow-sm border border-slate-200">
-              <div className="px-4 py-3 border-b border-slate-200 bg-slate-50/70">
-                <h2 className="text-base font-semibold text-slate-800">{setName}</h2>
-                <p className="text-xs text-slate-500 mt-0.5">{rows.length} bölüm satırı</p>
+            <div key={setId} className="admin-booklet-section-card">
+              <div className="admin-booklet-section-header">
+                <div>
+                  <h2 className="text-base font-semibold text-slate-800">{setName}</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">{rows.length} bölüm satırı</p>
+                </div>
               </div>
-              <div className="admin-table-wrapper">
-                <table className="admin-table">
+              <div className="admin-table-wrapper admin-booklet-section-body">
+                <table className="admin-table admin-booklet-table-row-hover">
                   <thead>
                     <tr>
                       <th className="admin-table-header-gradient">Kod</th>
