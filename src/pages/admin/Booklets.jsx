@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import { getAllExams } from "@/services/adminExamService";
 import { getSectionsByExamId } from "@/services/adminExamSectionService";
 import { getBookletsByExamId, addQuestionToBooklet, deleteBookletItem } from "@/services/adminBookletService";
+import { getAllBookletTemplates } from "@/services/adminBookletTemplateService";
 import { getAllLessons } from "@/services/adminLessonService";
 import { ERROR_MESSAGES } from "@/constants";
 
@@ -42,8 +43,10 @@ const Booklets = () => {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addForm, setAddForm] = useState(defaultAddForm);
   const [addSectionId, setAddSectionId] = useState(null);
+  const [addSectionName, setAddSectionName] = useState("");
   const [addSubmitting, setAddSubmitting] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(null);
+  const [templates, setTemplates] = useState([]);
 
   const loadExams = async () => {
     setLoading(true);
@@ -63,6 +66,9 @@ const Booklets = () => {
     getAllLessons()
       .then((data) => setLessons(Array.isArray(data) ? data : []))
       .catch(() => setLessons([]));
+    getAllBookletTemplates()
+      .then((data) => setTemplates(Array.isArray(data) ? data : []))
+      .catch(() => setTemplates([]));
   }, []);
 
   useEffect(() => {
@@ -91,13 +97,22 @@ const Booklets = () => {
       .finally(() => setBookletsLoading(false));
   }, [selectedExam?.id]);
 
+  const templateById = Object.fromEntries(
+    templates.map((t) => [String(t.id), t])
+  );
+
   const bookletsBySection = sections.map((sec) => {
     const sectionOrTemplateId = sec.questionsTemplateId || sec.id;
+    const items = booklets
+      .filter((b) => String(b.examSectionId) === String(sectionOrTemplateId))
+      .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+    const template = templateById[String(sectionOrTemplateId)];
+    const targetCount = template?.targetQuestionCount;
     return {
       section: sec,
-      items: booklets
-        .filter((b) => String(b.examSectionId) === String(sectionOrTemplateId))
-        .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0)),
+      sectionOrTemplateId,
+      items,
+      targetQuestionCount: targetCount != null ? targetCount : null,
     };
   });
 
@@ -107,6 +122,7 @@ const Booklets = () => {
   const openAddModal = (section) => {
     const sectionOrTemplateId = section?.questionsTemplateId || section?.id;
     setAddSectionId(section?.id);
+    setAddSectionName(getSectionName(section));
     setAddForm({
       ...defaultAddForm(),
       examSectionId: sectionOrTemplateId || "",
@@ -119,6 +135,7 @@ const Booklets = () => {
   const closeAddModal = () => {
     setAddModalOpen(false);
     setAddSectionId(null);
+    setAddSectionName("");
     setAddForm(defaultAddForm());
   };
 
@@ -199,20 +216,20 @@ const Booklets = () => {
 
   return (
     <div className="admin-page-wrapper">
-      <div className="admin-page-header">
+      <div className="admin-page-header admin-page-header-gradient flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div className="flex flex-col gap-1">
           <h1 className="admin-page-title">
             <FileText size={28} className="text-emerald-600 shrink-0" />
             Kitapçıklar
           </h1>
           <p className="text-slate-500 text-sm">
-            Sınava göre kitapçık satırlarını yönetin; bölüme soru ekleyin (stem, şıklar, doğru cevap).
+            Sınav seçin; bölümlere soru ekleyerek öğrenci kitapçığını oluşturun.
           </p>
         </div>
       </div>
 
-      <div className="admin-card p-4 mb-4">
-        <label className="admin-label mb-2 block">Sınav seçin</label>
+      <div className="admin-card p-4 mb-6 rounded-xl border border-slate-200 shadow-sm">
+        <label className="admin-label mb-2 block font-semibold text-slate-700">Sınav seçin</label>
         <select
           className="admin-input max-w-md"
           value={selectedExam?.id ?? ""}
@@ -229,6 +246,7 @@ const Booklets = () => {
             </option>
           ))}
         </select>
+        <p className="text-sm text-slate-500 mt-2">Kitapçık oluşturmak için bir sınav seçin.</p>
       </div>
 
       {loading ? (
@@ -236,11 +254,12 @@ const Booklets = () => {
           <span className="admin-spinner" />
         </div>
       ) : !selectedExam ? (
-        <div className="admin-empty-state rounded-xl">
+        <div className="admin-empty-state rounded-xl py-12">
           <FileText size={48} className="mx-auto mb-3 text-slate-300" />
           <p className="font-medium text-slate-600">
-            Kitapçık içeriğini görmek için yukarıdan bir sınav seçin.
+            Kitapçık oluşturmak için bir sınav seçin.
           </p>
+          <p className="text-sm mt-1 text-slate-500">Yukarıdaki listeden sınav seçtiğinizde bölümler ve soru ekleme alanları açılır.</p>
         </div>
       ) : bookletsLoading ? (
         <div className="admin-loading-center">
@@ -248,15 +267,15 @@ const Booklets = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          {bookletsBySection.map(({ section, items }) => (
+          {bookletsBySection.map(({ section, items, targetQuestionCount }) => (
             <div
               key={section.id}
-              className="admin-card admin-card-elevated overflow-hidden"
+              className="admin-card admin-card-elevated overflow-hidden rounded-lg shadow-sm border border-slate-200"
             >
               <div className="w-full flex items-center justify-between p-4 border-b border-slate-200">
                 <button
                   type="button"
-                  className="flex items-center gap-2 text-left hover:opacity-90"
+                  className="flex items-center gap-2 text-left hover:opacity-90 transition-opacity"
                   onClick={() =>
                     setExpandedSectionId((id) =>
                       id === section.id ? null : section.id
@@ -264,20 +283,27 @@ const Booklets = () => {
                   }
                 >
                   {expandedSectionId === section.id ? (
-                    <ChevronDown size={20} className="text-slate-500" />
+                    <ChevronDown size={20} className="text-slate-500 shrink-0" />
                   ) : (
-                    <ChevronRight size={20} className="text-slate-500" />
+                    <ChevronRight size={20} className="text-slate-500 shrink-0" />
                   )}
                   <span className="font-semibold text-slate-800">
                     {getSectionName(section)}
                   </span>
-                  <span className="admin-badge admin-badge-neutral text-xs">
-                    {items.length} soru
+                  <span className="admin-badge admin-badge-neutral text-xs tabular-nums">
+                    {targetQuestionCount != null
+                      ? `${items.length} / ${targetQuestionCount} soru`
+                      : `${items.length} soru`}
                   </span>
+                  {targetQuestionCount != null && items.length < targetQuestionCount && (
+                    <span className="text-xs text-amber-600">
+                      ({targetQuestionCount - items.length} soru daha ekleyin)
+                    </span>
+                  )}
                 </button>
                 <button
                   type="button"
-                  className="admin-btn admin-btn-primary"
+                  className="admin-btn admin-btn-primary shrink-0"
                   onClick={() => openAddModal(section)}
                 >
                   <Plus size={18} />
@@ -290,12 +316,12 @@ const Booklets = () => {
                     <table className="admin-table">
                       <thead>
                         <tr>
-                          <th className="w-12">Sıra</th>
-                          <th>Kod</th>
-                          <th>Soru metni</th>
-                          <th>Ders</th>
-                          <th>Doğru</th>
-                          <th className="text-right w-28">İşlem</th>
+                          <th className="w-12 admin-table-header-gradient">Sıra</th>
+                          <th className="admin-table-header-gradient">Kod</th>
+                          <th className="admin-table-header-gradient">Soru metni</th>
+                          <th className="admin-table-header-gradient">Ders</th>
+                          <th className="admin-table-header-gradient">Doğru</th>
+                          <th className="admin-table-header-gradient text-right w-28">İşlem</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -339,9 +365,12 @@ const Booklets = () => {
             </div>
           ))}
           {sections.length === 0 && (
-            <div className="admin-empty-state rounded-xl">
-              <p className="text-slate-600">
-                Bu sınav için henüz bölüm atanmamış. Önce sınav bölümlerini (şablon atama) tanımlayın.
+            <div className="admin-empty-state rounded-xl py-12">
+              <p className="font-medium text-slate-600">
+                Bu sınav için henüz bölüm atanmamış.
+              </p>
+              <p className="text-sm mt-1 text-slate-500">
+                Önce sınav bölümlerini (şablon atama) tanımlayın; ardından buradan bölümlere soru ekleyebilirsiniz.
               </p>
             </div>
           )}
@@ -355,7 +384,9 @@ const Booklets = () => {
             className="admin-modal admin-modal-lg"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="admin-modal-header">Kitapçık bölümüne soru ekle</div>
+            <div className="admin-modal-header">
+              {addSectionName ? `Bölüme soru ekle: ${addSectionName}` : "Kitapçık bölümüne soru ekle"}
+            </div>
             <form onSubmit={handleAddQuestion}>
               <div className="admin-modal-body space-y-4">
                 <div className="admin-form-group">

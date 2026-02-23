@@ -1,15 +1,6 @@
-// Solution1 Admin QuestionSolution API
-// Route: api/AdminQuestionSolution
-// Type: 0=ExplanationText, 1=Video, 2=Pdf, 3=Link
+// AdminQuestionSolutionController — api/AdminQuestionSolution
+// Doc: docs/02-Questions-API-Endpoints-Detay.md — Type: 0=ExplanationText, 1=Video, 2=Pdf, 3=Link
 import adminApi from "@/api/adminApi";
-
-/**
- * Tüm soru çözümlerini listele. GET /AdminQuestionSolution/all
- */
-export const getAllQuestionSolutions = async () => {
-  const response = await adminApi.get("/AdminQuestionSolution/all");
-  return Array.isArray(response.data) ? response.data : [];
-};
 
 /**
  * Soruya göre çözümleri listele. GET /AdminQuestionSolution/by-question/{questionId}
@@ -30,34 +21,24 @@ export const getQuestionSolutionById = async (id) => {
 };
 
 /**
- * Soru çözümü oluştur. POST /AdminQuestionSolution/create
- * Rapor 13.4: questionId, solutionType ("Text"|"Video"|"Pdf"|"Link"), content, videoUrl?, pdfUrl?, externalLink?
- * Eski alanlar (type 0=Text,1=Video,2=Pdf,3=Link; contentText; url) rapor alanlarına eşlenir.
+ * Yeni soru çözümü oluştur. POST /AdminQuestionSolution
+ * Body: questionId, type (0-3), title, contentText, url, orderIndex, isActive
  */
 export const createQuestionSolution = async (data) => {
-  const typeToSolutionType = ["Text", "Video", "Pdf", "Link"];
-  const t = data.type ?? 0;
-  const solutionType = data.solutionType ?? typeToSolutionType[t] ?? "Text";
-  const content = data.content ?? data.contentText ?? null;
-  const videoUrl = data.videoUrl ?? (t === 1 ? data.url : null) ?? null;
-  const pdfUrl = data.pdfUrl ?? (t === 2 ? data.url : null) ?? null;
-  const externalLink = data.externalLink ?? (t === 3 ? data.url : null) ?? null;
-
-  const response = await adminApi.post("/AdminQuestionSolution/create", {
+  const response = await adminApi.post("/AdminQuestionSolution", {
     questionId: data.questionId,
-    solutionType,
-    content: content ?? null,
-    videoUrl: videoUrl ?? null,
-    pdfUrl: pdfUrl ?? null,
-    externalLink: externalLink ?? null,
+    type: data.type ?? 0,
+    title: data.title ?? null,
+    contentText: data.contentText ?? null,
+    url: data.url ?? null,
+    orderIndex: data.orderIndex ?? 0,
+    isActive: data.isActive !== false,
   });
   return response.data;
 };
 
 /**
  * Soru çözümü güncelle. PUT /AdminQuestionSolution/{id}
- * @param {string} id Soru çözümü id (GUID)
- * @param {{ type?: number, title?: string, contentText?: string, url?: string, orderIndex?: number, isActive?: boolean }} data
  */
 export const updateQuestionSolution = async (id, data) => {
   const response = await adminApi.put(`/AdminQuestionSolution/${id}`, data);
@@ -68,6 +49,5 @@ export const updateQuestionSolution = async (id, data) => {
  * Soru çözümü sil. DELETE /AdminQuestionSolution/{id}
  */
 export const deleteQuestionSolution = async (id) => {
-  const response = await adminApi.delete(`/AdminQuestionSolution/${id}`);
-  return response.data;
+  await adminApi.delete(`/AdminQuestionSolution/${id}`);
 };

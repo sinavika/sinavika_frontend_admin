@@ -250,16 +250,28 @@ const BookletTemplates = () => {
   const getCategoryName = (id) =>
     categories.find((c) => String(c.id) === String(id))?.name ?? "—";
 
+  const templateSets = (() => {
+    const setIds = [...new Set(filteredList.map((t) => t.questionsTemplateId || t.id))];
+    return setIds.map((setId) => {
+      const rows = filteredList
+        .filter((t) => (t.questionsTemplateId || t.id) === setId)
+        .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+      const setRoot = rows.find((r) => r.id === setId);
+      const setName = setRoot?.name ?? rows[0]?.name ?? "Şablon seti";
+      return { setId, setName, rows };
+    });
+  })();
+
   return (
     <div className="admin-page-wrapper">
-      <div className="admin-page-header">
+      <div className="admin-page-header admin-page-header-gradient flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h1 className="admin-page-title">
             <LayoutTemplate size={28} className="text-emerald-600 shrink-0" />
             Kitapçık şablonları
           </h1>
           <p className="text-slate-500 text-sm">
-            Kategori ve bölüm şablonuna göre kitapçık şablonlarını yönetin.
+            Şablon setleri ve bölüm satırları tanımlayın (hangi bölüm, kaç soru). Sınavlar bu şablonlara göre kitapçık oluşturur.
           </p>
         </div>
         <button
@@ -273,8 +285,8 @@ const BookletTemplates = () => {
       </div>
 
       {/* Filtre */}
-      <div className="admin-card p-4 mb-4 flex flex-wrap items-center gap-3">
-        <span className="text-sm font-medium text-slate-600">Filtre:</span>
+      <div className="admin-card p-4 mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 shadow-sm">
+        <span className="text-sm font-semibold uppercase tracking-wider text-slate-500">Filtre</span>
         <select
           className="admin-input w-auto min-w-[180px]"
           value={filterCategoryId}
@@ -322,82 +334,90 @@ const BookletTemplates = () => {
           <span className="admin-spinner" />
         </div>
       ) : filteredList.length === 0 ? (
-        <div className="admin-empty-state rounded-xl">
+        <div className="admin-empty-state rounded-xl py-12">
           <LayoutTemplate size={48} className="mx-auto mb-3 text-slate-300" />
           <p className="font-medium text-slate-600">
             {list.length === 0
               ? "Henüz kitapçık şablonu yok."
               : "Filtreye uygun şablon bulunamadı."}
           </p>
-          <p className="text-sm mt-1">
-            {list.length === 0 && '"Yeni şablon" ile ekleyebilirsiniz.'}
+          <p className="text-sm mt-1 text-slate-500">
+            {list.length === 0 && '"Yeni şablon" ile önce bir şablon seti veya mevcut sete bölüm ekleyebilirsiniz.'}
           </p>
         </div>
       ) : (
-        <div className="admin-card admin-card-elevated overflow-hidden">
-          <div className="admin-table-wrapper">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Kod</th>
-                  <th>Ad</th>
-                  <th>Kategori</th>
-                  <th>Hedef soru</th>
-                  <th>Sıra</th>
-                  <th>Durum</th>
-                  <th>Oluşturulma</th>
-                  <th className="text-right">İşlem</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredList.map((item) => (
-                  <tr key={item.id}>
-                    <td className="font-mono text-sm">{item.code}</td>
-                    <td className="font-medium">{item.name}</td>
-                    <td className="text-slate-600 text-sm">
-                      {getCategoryName(item.categoryId)}
-                    </td>
-                    <td>{item.targetQuestionCount ?? "—"}</td>
-                    <td>{item.orderIndex ?? "—"}</td>
-                    <td>
-                      <span
-                        className={
-                          item.isActive
-                            ? "admin-badge admin-badge-success"
-                            : "admin-badge admin-badge-neutral"
-                        }
-                      >
-                        {item.isActive ? "Aktif" : "Pasif"}
-                      </span>
-                    </td>
-                    <td className="text-slate-500 text-sm">
-                      {formatDate(item.createdAt)}
-                    </td>
-                    <td className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(item)}
-                          className="admin-btn admin-btn-ghost admin-btn-icon"
-                          title="Düzenle"
-                        >
-                          <Pencil size={18} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openDelete(item)}
-                          className="admin-btn admin-btn-ghost admin-btn-icon text-red-600 hover:bg-red-50"
-                          title="Sil"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <div className="space-y-6">
+          {templateSets.map(({ setId, setName, rows }) => (
+            <div key={setId} className="admin-card admin-card-elevated overflow-hidden rounded-lg shadow-sm border border-slate-200">
+              <div className="px-4 py-3 border-b border-slate-200 bg-slate-50/70">
+                <h2 className="text-base font-semibold text-slate-800">{setName}</h2>
+                <p className="text-xs text-slate-500 mt-0.5">{rows.length} bölüm satırı</p>
+              </div>
+              <div className="admin-table-wrapper">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th className="admin-table-header-gradient">Kod</th>
+                      <th className="admin-table-header-gradient">Ad</th>
+                      <th className="admin-table-header-gradient">Kategori</th>
+                      <th className="admin-table-header-gradient">Hedef soru</th>
+                      <th className="admin-table-header-gradient">Sıra</th>
+                      <th className="admin-table-header-gradient">Durum</th>
+                      <th className="admin-table-header-gradient">Oluşturulma</th>
+                      <th className="admin-table-header-gradient text-right">İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((item) => (
+                      <tr key={item.id}>
+                        <td className="font-mono text-sm">{item.code ?? "—"}</td>
+                        <td className="font-medium">{item.name}</td>
+                        <td className="text-slate-600 text-sm">
+                          {getCategoryName(item.categoryId)}
+                        </td>
+                        <td>{item.targetQuestionCount ?? "—"}</td>
+                        <td>{item.orderIndex ?? "—"}</td>
+                        <td>
+                          <span
+                            className={
+                              item.isActive
+                                ? "admin-badge admin-badge-success"
+                                : "admin-badge admin-badge-neutral"
+                            }
+                          >
+                            {item.isActive ? "Aktif" : "Pasif"}
+                          </span>
+                        </td>
+                        <td className="text-slate-500 text-sm">
+                          {formatDate(item.createdAt)}
+                        </td>
+                        <td className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => openEdit(item)}
+                              className="admin-btn admin-btn-ghost admin-btn-icon"
+                              title="Düzenle"
+                            >
+                              <Pencil size={18} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openDelete(item)}
+                              className="admin-btn admin-btn-ghost admin-btn-icon text-red-600 hover:bg-red-50"
+                              title="Sil"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -409,7 +429,9 @@ const BookletTemplates = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="admin-modal-header">Yeni kitapçık şablonu</div>
-            <p className="px-4 pt-3 text-sm text-slate-500">questionsTemplateId boş ise yeni şablon seti oluşturulur; dolu ise mevcut sete bölüm eklenir.</p>
+            <p className="px-4 pt-3 text-sm text-slate-500">
+              <strong>Yeni şablon seti:</strong> Aşağıda &quot;Şablon seti&quot; alanında &quot;Yeni set oluştur&quot; seçili olsun. <strong>Mevcut sete bölüm ekle:</strong> &quot;Şablon seti&quot; alanından mevcut bir set seçin.
+            </p>
             <form onSubmit={handleCreate}>
               <div className="admin-modal-body space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -562,7 +584,7 @@ const BookletTemplates = () => {
                   </div>
                 </div>
                 <div className="admin-form-group">
-                  <label className="admin-label">Mevcut şablon seti (opsiyonel)</label>
+                  <label className="admin-label">Şablon seti</label>
                   <select
                     className="admin-input"
                     value={form.questionsTemplateId || ""}
@@ -570,7 +592,7 @@ const BookletTemplates = () => {
                       setForm((f) => ({ ...f, questionsTemplateId: e.target.value || null }))
                     }
                   >
-                    <option value="">Yeni set oluştur</option>
+                    <option value="">Yeni set oluştur (ilk bölüm)</option>
                     {list
                       .filter((t) => t.questionsTemplateId)
                       .reduce((acc, t) => {
