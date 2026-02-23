@@ -17,6 +17,7 @@ import { ERROR_MESSAGES } from "@/constants";
 const OPTION_KEYS = ["A", "B", "C", "D", "E"];
 
 const defaultAddForm = () => ({
+  examId: "",
   examSectionId: "",
   questionsTemplateId: "",
   lessonId: "",
@@ -133,11 +134,11 @@ const Booklets = () => {
     section?.name ?? section?.code ?? `Bölüm ${section?.orderIndex ?? ""}`.trim() ?? "—";
 
   const openAddModal = (section) => {
-    // section = QuestionBookletTemplate satırı; section.id = bölüm şablonu Id (doc: add-question için zorunlu).
     const templateRowId = section.id;
     setAddSectionName(getSectionName(section));
     setAddForm({
       ...defaultAddForm(),
+      examId: selectedExam?.id ?? "",
       examSectionId: templateRowId,
       questionsTemplateId: templateRowId,
       orderIndex: booklets.filter(
@@ -157,7 +158,11 @@ const Booklets = () => {
 
   const handleAddQuestion = async (e) => {
     e.preventDefault();
-    if (!selectedExam?.id) return;
+    const examId = addForm.examId?.trim() || selectedExam?.id;
+    if (!examId) {
+      toast.error("Soru eklemek için sınav seçin.");
+      return;
+    }
     if (!addForm.stem?.trim()) {
       toast.error("Soru metni (stem) zorunludur.");
       return;
@@ -185,7 +190,7 @@ const Booklets = () => {
     setAddSubmitting(true);
     try {
       await addQuestionToBooklet({
-        examId: selectedExam.id,
+        examId,
         examSectionId: templateRowId,
         questionsTemplateId: templateRowId,
         lessonId: addForm.lessonId.trim(),
@@ -198,8 +203,10 @@ const Booklets = () => {
         publisherId: undefined,
       });
       toast.success("Soru kitapçığa eklendi.");
+      const exam = exams.find((ex) => String(ex.id) === examId);
+      if (exam) setSelectedExam(exam);
       closeAddModal();
-      const data = await getBookletsByExamId(selectedExam.id);
+      const data = await getBookletsByExamId(examId);
       setBooklets(Array.isArray(data) ? data : []);
     } catch (err) {
       toast.error(err.message || "Soru eklenemedi.");
@@ -209,12 +216,17 @@ const Booklets = () => {
   };
 
   const handleDelete = async (item) => {
+    const examIdToRefetch = selectedExam?.id || item.examId;
     setDeleteSubmitting(item.id);
     try {
       await deleteBookletItem(item.id);
       toast.success("Kitapçık satırı kaldırıldı.");
-      const data = await getBookletsByExamId(selectedExam.id);
-      setBooklets(Array.isArray(data) ? data : []);
+      if (examIdToRefetch) {
+        const data = await getBookletsByExamId(examIdToRefetch);
+        setBooklets(Array.isArray(data) ? data : []);
+      } else {
+        setBooklets((prev) => prev.filter((b) => b.id !== item.id));
+      }
     } catch (err) {
       toast.error(err.message || "Kaldırılamadı.");
     } finally {
@@ -240,79 +252,69 @@ const Booklets = () => {
             Kitapçıklar
           </h1>
           <p className="text-slate-500 text-sm">
-            Sınav ve kitapçık şablonu seçin; şablonun bölümlerine soru ekleyerek o sınavın kitapçığını doldurun. Önce Kitapçık şablonları sayfasında şablon seti oluşturun.
+            Kitapçık şablonu seçin; şablonun bölümlerine soru ekleyerek kitapçık oluşturun. Soru eklerken sorunun hangi sınava ait olacağını seçersiniz.
           </p>
         </div>
       </div>
 
       <div className="admin-booklet-flow mb-6">
         <strong>Adımlar:</strong>
-        <span className="admin-booklet-flow-step">Sınav seçin</span>
-        <span className="text-slate-500">→</span>
         <span className="admin-booklet-flow-step">Kitapçık şablonu seçin</span>
         <span className="text-slate-500">→</span>
-        <span className="admin-booklet-flow-step">Bölüme soru ekleyin</span>
+        <span className="admin-booklet-flow-step">Bölüme soru ekle (soru eklerken sınav seçin)</span>
       </div>
 
-      <div className="admin-card p-4 mb-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-        <div>
-          <label className="admin-label mb-2 block font-semibold text-slate-700">Sınav seçin</label>
-          <select
-            className="admin-input max-w-md"
-            value={selectedExam?.id ?? ""}
-            onChange={(e) => {
-              const id = e.target.value;
-              setSelectedExam(exams.find((ex) => String(ex.id) === id) || null);
-            }}
-            disabled={loading}
-          >
-            <option value="">— Sınav seçin —</option>
-            {exams.map((ex) => (
-              <option key={ex.id} value={ex.id}>
-                {ex.title}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="admin-label mb-2 block font-semibold text-slate-700">
-            <LayoutTemplate size={18} className="inline-block mr-1 align-middle text-emerald-600" />
-            Kitapçık şablonu seçin
-          </label>
-          <select
-            className="admin-input max-w-md"
-            value={selectedTemplateSetId}
-            onChange={(e) => {
-              setSelectedTemplateSetId(e.target.value);
-              const firstRow = templateSets.find((s) => s.setId === e.target.value)?.rows?.[0];
-              if (firstRow) setExpandedSectionId(firstRow.id);
-            }}
-            disabled={loading || templates.length === 0}
-          >
-            <option value="">— Kitapçık şablonu seçin —</option>
-            {templateSets.map((set) => (
-              <option key={set.setId} value={set.setId}>
-                {set.label} ({set.rows.length} bölüm)
-              </option>
-            ))}
-          </select>
-          <p className="text-sm text-slate-500 mt-1">
-            Şablon seti seçildikten sonra bölümler listelenir; her bölüme soru ekleyebilirsiniz.
-          </p>
-        </div>
+      <div className="admin-card p-4 mb-6 rounded-xl border border-slate-200 shadow-sm">
+        <label className="admin-label mb-2 block font-semibold text-slate-700">
+          <LayoutTemplate size={18} className="inline-block mr-1 align-middle text-emerald-600" />
+          Kitapçık şablonu seçin
+        </label>
+        <select
+          className="admin-input max-w-md"
+          value={selectedTemplateSetId}
+          onChange={(e) => {
+            setSelectedTemplateSetId(e.target.value);
+            const firstRow = templateSets.find((s) => s.setId === e.target.value)?.rows?.[0];
+            if (firstRow) setExpandedSectionId(firstRow.id);
+          }}
+          disabled={loading || templates.length === 0}
+        >
+          <option value="">— Kitapçık şablonu seçin —</option>
+          {templateSets.map((set) => (
+            <option key={set.setId} value={set.setId}>
+              {set.label} ({set.rows.length} bölüm)
+            </option>
+          ))}
+        </select>
+        <p className="text-sm text-slate-500 mt-1">
+          Şablonu seçtiğinizde bölümler listelenir; her bölüme &quot;Soru ekle&quot; ile soru ekleyebilirsiniz. Mevcut soruları görmek için aşağıdan sınav seçin.
+        </p>
+        {templateSets.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-slate-200">
+            <label className="admin-label mb-1 block text-sm text-slate-500">Mevcut soruları görmek için sınav seçin (opsiyonel)</label>
+            <select
+              className="admin-input max-w-md text-sm"
+              value={selectedExam?.id ?? ""}
+              onChange={(e) => {
+                const id = e.target.value;
+                setSelectedExam(exams.find((ex) => String(ex.id) === id) || null);
+              }}
+              disabled={loading}
+            >
+              <option value="">— Sınav seçmeden devam edebilirsiniz —</option>
+              {exams.map((ex) => (
+                <option key={ex.id} value={ex.id}>
+                  {ex.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {loading ? (
         <div className="admin-loading-center">
           <span className="admin-spinner" />
-        </div>
-      ) : !selectedExam ? (
-        <div className="admin-empty-state rounded-xl py-12">
-          <FileText size={48} className="mx-auto mb-3 text-slate-300" />
-          <p className="font-medium text-slate-600">
-            Önce bir sınav seçin.
-          </p>
-          <p className="text-sm mt-1 text-slate-500">Sınav ve kitapçık şablonu seçtiğinizde bölümler açılır.</p>
         </div>
       ) : !selectedTemplateSetId ? (
         <div className="admin-empty-state rounded-xl py-12">
@@ -455,6 +457,23 @@ const Booklets = () => {
             </div>
             <form onSubmit={handleAddQuestion}>
               <div className="admin-modal-body space-y-4">
+                <div className="admin-form-group">
+                  <label className="admin-label admin-label-required">Sınav (soru hangi sınava eklenecek)</label>
+                  <select
+                    className="admin-input"
+                    value={addForm.examId}
+                    onChange={(e) => setAddForm((f) => ({ ...f, examId: e.target.value }))}
+                    required
+                  >
+                    <option value="">— Sınav seçin —</option>
+                    {exams.map((ex) => (
+                      <option key={ex.id} value={ex.id}>
+                        {ex.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="admin-form-divider" />
                 <div className="admin-form-group">
                   <label className="admin-label admin-label-required">Soru metni</label>
                   <textarea
