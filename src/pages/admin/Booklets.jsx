@@ -9,20 +9,28 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { getAllExams } from "@/services/adminExamService";
-import { getBookletsByExamId, addQuestionToBooklet, deleteBookletItem } from "@/services/adminBookletService";
+import {
+  getBookletsByExamId,
+  createBooklet,
+  addQuestionToBooklet,
+  removeQuestionFromBooklet,
+  deleteBookletItem,
+} from "@/services/adminBookletService";
 import { getAllBookletTemplates } from "@/services/adminBookletTemplateService";
 import { getAllLessons } from "@/services/adminLessonService";
 import { ERROR_MESSAGES } from "@/constants";
 
 const OPTION_KEYS = ["A", "B", "C", "D", "E"];
 
-const defaultAddForm = () => ({
-  examId: "",
-  examSectionId: "",
+const defaultCreateBookletForm = () => ({
   questionsTemplateId: "",
   lessonId: "",
   name: "",
   orderIndex: 0,
+  examId: "",
+});
+
+const defaultQuestionForm = () => ({
   stem: "",
   options: OPTION_KEYS.slice(0, 4).map((key, i) => ({
     optionKey: key,
@@ -58,11 +66,17 @@ const Booklets = () => {
   const [lessons, setLessons] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [expandedSectionId, setExpandedSectionId] = useState(null);
-  const [addModalOpen, setAddModalOpen] = useState(false);
-  const [addForm, setAddForm] = useState(defaultAddForm);
-  const [addSectionName, setAddSectionName] = useState("");
-  const [addSubmitting, setAddSubmitting] = useState(false);
+  const [createBookletModalOpen, setCreateBookletModalOpen] = useState(false);
+  const [createBookletForm, setCreateBookletForm] = useState(defaultCreateBookletForm);
+  const [createBookletSection, setCreateBookletSection] = useState(null);
+  const [createBookletSubmitting, setCreateBookletSubmitting] = useState(false);
+  const [addQuestionModalOpen, setAddQuestionModalOpen] = useState(false);
+  const [addQuestionForm, setAddQuestionForm] = useState(defaultQuestionForm);
+  const [addQuestionBooklet, setAddQuestionBooklet] = useState(null);
+  const [addQuestionSectionName, setAddQuestionSectionName] = useState("");
+  const [addQuestionSubmitting, setAddQuestionSubmitting] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(null);
+  const [removeQuestionSubmitting, setRemoveQuestionSubmitting] = useState(null);
 
   const templateSets = useMemo(() => buildTemplateSets(templates), [templates]);
 
@@ -97,8 +111,7 @@ const Booklets = () => {
 
   useEffect(() => {
     if (!selectedExam?.id) {
-      setBooklets([]);
-      setExpandedSectionId(null);
+      setBookletsLoading(false);
       return;
     }
     setBookletsLoading(true);
@@ -133,85 +146,148 @@ const Booklets = () => {
   const getSectionName = (section) =>
     section?.name ?? section?.code ?? `Bölüm ${section?.orderIndex ?? ""}`.trim() ?? "—";
 
-  const openAddModal = (section) => {
+  const openCreateBookletModal = (section) => {
     const templateRowId = section.id;
-    setAddSectionName(getSectionName(section));
-    setAddForm({
-      ...defaultAddForm(),
-      examId: selectedExam?.id ?? "",
-      examSectionId: templateRowId,
+    const count = booklets.filter(
+      (b) =>
+        String(b.questionsTemplateId) === String(templateRowId) ||
+        String(b.examSectionId) === String(templateRowId)
+    ).length;
+    setCreateBookletSection(section);
+    setCreateBookletForm({
+      ...defaultCreateBookletForm(),
       questionsTemplateId: templateRowId,
-      orderIndex: booklets.filter(
-        (b) =>
-          String(b.questionsTemplateId) === String(templateRowId) ||
-          String(b.examSectionId) === String(templateRowId)
-      ).length,
+      orderIndex: count,
+      examId: selectedExam?.id ?? "",
     });
-    setAddModalOpen(true);
+    setCreateBookletModalOpen(true);
   };
 
-  const closeAddModal = () => {
-    setAddModalOpen(false);
-    setAddSectionName("");
-    setAddForm(defaultAddForm());
+  const closeCreateBookletModal = () => {
+    setCreateBookletModalOpen(false);
+    setCreateBookletSection(null);
+    setCreateBookletForm(defaultCreateBookletForm());
+  };
+
+  const handleCreateBooklet = async (e) => {
+    e.preventDefault();
+    if (!createBookletForm.questionsTemplateId?.trim()) {
+      toast.error("Bölüm şablonu gerekli.");
+      return;
+    }
+    if (!createBookletForm.lessonId?.trim()) {
+      toast.error("Ders seçin.");
+      return;
+    }
+    setCreateBookletSubmitting(true);
+    try {
+      const data = await createBooklet({
+        questionsTemplateId: createBookletForm.questionsTemplateId.trim(),
+        lessonId: createBookletForm.lessonId.trim(),
+        name: createBookletForm.name?.trim() || null,
+        orderIndex: createBookletForm.orderIndex ?? 0,
+        examId: createBookletForm.examId?.trim() || null,
+      });
+      toast.success("Kitapçık oluşturuldu. Şimdi soru ekleyebilirsiniz.");
+      if (selectedExam?.id && data.examId) {
+        const list = await getBookletsByExamId(selectedExam.id);
+        setBooklets(Array.isArray(list) ? list : []);
+      } else {
+        setBooklets((prev) => [...prev, data]);
+      }
+      closeCreateBookletModal();
+    } catch (err) {
+      toast.error(err.message || "Kitapçık oluşturulamadı.");
+    } finally {
+      setCreateBookletSubmitting(false);
+    }
+  };
+
+  const openAddQuestionModal = (booklet, sectionName) => {
+    setAddQuestionBooklet(booklet);
+    setAddQuestionSectionName(sectionName ?? "");
+    setAddQuestionForm(defaultQuestionForm());
+    setAddQuestionModalOpen(true);
+  };
+
+  const closeAddQuestionModal = () => {
+    setAddQuestionModalOpen(false);
+    setAddQuestionBooklet(null);
+    setAddQuestionSectionName("");
+    setAddQuestionForm(defaultQuestionForm());
   };
 
   const handleAddQuestion = async (e) => {
     e.preventDefault();
-    const examId = addForm.examId?.trim() || selectedExam?.id;
-    if (!examId) {
-      toast.error("Soru eklemek için sınav seçin.");
-      return;
-    }
-    if (!addForm.stem?.trim()) {
+    if (!addQuestionBooklet?.id) return;
+    if (!addQuestionForm.stem?.trim()) {
       toast.error("Soru metni (stem) zorunludur.");
       return;
     }
-    const options = addForm.options
+    const options = addQuestionForm.options
       .filter((o) => o.text?.trim())
       .map((o, i) => ({ ...o, orderIndex: i + 1 }));
     if (options.length < 2) {
       toast.error("En az 2 şık girin.");
       return;
     }
-    if (!addForm.correctOptionKey || !options.some((o) => o.optionKey === addForm.correctOptionKey)) {
+    if (!addQuestionForm.correctOptionKey || !options.some((o) => o.optionKey === addQuestionForm.correctOptionKey)) {
       toast.error("Doğru şık seçin.");
       return;
     }
-    const templateRowId = addForm.questionsTemplateId || addForm.examSectionId;
-    if (!templateRowId) {
-      toast.error("Bölüm şablonu belirtilmeli. Lütfen sayfadan bir kitapçık şablonu seçip bölüme tekrar girin.");
-      return;
-    }
-    if (!addForm.lessonId?.trim()) {
-      toast.error("Ders seçin.");
-      return;
-    }
-    setAddSubmitting(true);
+    setAddQuestionSubmitting(true);
     try {
-      await addQuestionToBooklet({
-        examId,
-        examSectionId: templateRowId,
-        questionsTemplateId: templateRowId,
-        lessonId: addForm.lessonId.trim(),
-        name: addForm.name?.trim() || "Soru",
-        orderIndex: addForm.orderIndex ?? 0,
-        stem: addForm.stem.trim(),
+      await addQuestionToBooklet(addQuestionBooklet.id, {
+        stem: addQuestionForm.stem.trim(),
         options,
-        correctOptionKey: addForm.correctOptionKey,
-        lessonSubId: undefined,
-        publisherId: undefined,
+        correctOptionKey: addQuestionForm.correctOptionKey,
       });
       toast.success("Soru kitapçığa eklendi.");
-      const exam = exams.find((ex) => String(ex.id) === examId);
-      if (exam) setSelectedExam(exam);
-      closeAddModal();
-      const data = await getBookletsByExamId(examId);
-      setBooklets(Array.isArray(data) ? data : []);
+      closeAddQuestionModal();
+      if (selectedExam?.id) {
+        const data = await getBookletsByExamId(selectedExam.id);
+        setBooklets(Array.isArray(data) ? data : []);
+      } else {
+        setBooklets((prev) =>
+          prev.map((b) =>
+            b.id === addQuestionBooklet.id
+              ? { ...b, questionId: true, stem: addQuestionForm.stem.trim(), correctOptionKey: addQuestionForm.correctOptionKey, questionCode: b.code }
+              : b
+          )
+        );
+      }
     } catch (err) {
       toast.error(err.message || "Soru eklenemedi.");
     } finally {
-      setAddSubmitting(false);
+      setAddQuestionSubmitting(false);
+    }
+  };
+
+  const refetchBooklets = async () => {
+    if (selectedExam?.id) {
+      const data = await getBookletsByExamId(selectedExam.id);
+      setBooklets(Array.isArray(data) ? data : []);
+    }
+  };
+
+  const handleRemoveQuestion = async (booklet) => {
+    setRemoveQuestionSubmitting(booklet.id);
+    try {
+      await removeQuestionFromBooklet(booklet.id);
+      toast.success("Soru kitapçıktan kaldırıldı.");
+      if (selectedExam?.id) {
+        await refetchBooklets();
+      } else {
+        setBooklets((prev) =>
+          prev.map((b) =>
+            b.id === booklet.id ? { ...b, questionId: null, stem: null, correctOptionKey: null, questionCode: null } : b
+          )
+        );
+      }
+    } catch (err) {
+      toast.error(err.message || "Soru kaldırılamadı.");
+    } finally {
+      setRemoveQuestionSubmitting(null);
     }
   };
 
@@ -235,7 +311,7 @@ const Booklets = () => {
   };
 
   const setOptionText = (index, text) => {
-    setAddForm((f) => ({
+    setAddQuestionForm((f) => ({
       ...f,
       options: f.options.map((o, i) =>
         i === index ? { ...o, text } : o
@@ -261,7 +337,9 @@ const Booklets = () => {
         <strong>Adımlar:</strong>
         <span className="admin-booklet-flow-step">Kitapçık şablonu seçin</span>
         <span className="text-slate-500">→</span>
-        <span className="admin-booklet-flow-step">Bölüme soru ekle (soru eklerken sınav seçin)</span>
+        <span className="admin-booklet-flow-step">Bölüm için kitapçık oluştur</span>
+        <span className="text-slate-500">→</span>
+        <span className="admin-booklet-flow-step">Kitapçığa soru ekle</span>
       </div>
 
       <div className="admin-card p-4 mb-6 rounded-xl border border-slate-200 shadow-sm">
@@ -287,7 +365,7 @@ const Booklets = () => {
           ))}
         </select>
         <p className="text-sm text-slate-500 mt-1">
-          Şablonu seçtiğinizde bölümler listelenir; her bölüme &quot;Soru ekle&quot; ile soru ekleyebilirsiniz. Mevcut soruları görmek için aşağıdan sınav seçin.
+          Şablonu seçtiğinizde bölümler listelenir; her bölüm için önce &quot;Kitapçık oluştur&quot;, sonra oluşan kitapçığa &quot;Soru ekle&quot; ile soru ekleyebilirsiniz. Mevcut kitapçıkları görmek için aşağıdan sınav seçin.
         </p>
         {templateSets.length > 0 && (
           <div className="mt-4 pt-4 border-t border-slate-200">
@@ -371,11 +449,11 @@ const Booklets = () => {
                 <button
                   type="button"
                   className="admin-btn admin-btn-primary shrink-0"
-                  onClick={() => openAddModal(section)}
-                  title="Bu bölüme soru ekle"
+                  onClick={() => openCreateBookletModal(section)}
+                  title="Bu bölüm için kitapçık oluştur"
                 >
                   <Plus size={18} />
-                  Soru ekle
+                  Kitapçık oluştur
                 </button>
               </div>
               {expandedSectionId === section.id && (
@@ -396,14 +474,14 @@ const Booklets = () => {
                         {items.length === 0 ? (
                           <tr>
                             <td colSpan={6} className="text-center text-slate-500 py-6">
-                              Bu bölümde henüz soru yok. &quot;Soru ekle&quot; ile ekleyin.
+                              Bu bölümde henüz kitapçık yok. &quot;Kitapçık oluştur&quot; ile ekleyin.
                             </td>
                           </tr>
                         ) : (
                           items.map((item) => (
                             <tr key={item.id}>
                               <td>{item.orderIndex ?? "—"}</td>
-                              <td className="font-mono text-sm">{item.questionCode ?? "—"}</td>
+                              <td className="font-mono text-sm">{item.code ?? item.questionCode ?? "—"}</td>
                               <td className="max-w-xs truncate text-slate-700" title={item.stem}>
                                 {item.stem
                                   ? `${item.stem.slice(0, 80)}${item.stem.length > 80 ? "…" : ""}`
@@ -411,16 +489,49 @@ const Booklets = () => {
                               </td>
                               <td className="text-slate-600 text-sm">{item.lessonName ?? "—"}</td>
                               <td className="font-medium">{item.correctOptionKey ?? "—"}</td>
-                              <td className="text-right">
-                                <button
-                                  type="button"
-                                  className="admin-btn admin-btn-ghost admin-btn-icon text-red-600 hover:bg-red-50"
-                                  title="Kaldır"
-                                  disabled={deleteSubmitting === item.id}
-                                  onClick={() => handleDelete(item)}
-                                >
-                                  <Trash2 size={18} />
-                                </button>
+                              <td className="text-right flex items-center justify-end gap-1">
+                                {item.questionId || item.stem ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="admin-btn admin-btn-ghost admin-btn-icon text-amber-600 hover:bg-amber-50"
+                                      title="Soru kaldır"
+                                      disabled={removeQuestionSubmitting === item.id}
+                                      onClick={() => handleRemoveQuestion(item)}
+                                    >
+                                      Soru kaldır
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="admin-btn admin-btn-ghost admin-btn-icon text-red-600 hover:bg-red-50"
+                                      title="Kitapçık sil"
+                                      disabled={deleteSubmitting === item.id}
+                                      onClick={() => handleDelete(item)}
+                                    >
+                                      <Trash2 size={18} />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="admin-btn admin-btn-ghost text-emerald-600 hover:bg-emerald-50"
+                                      title="Soru ekle"
+                                      onClick={() => openAddQuestionModal(item, getSectionName(section))}
+                                    >
+                                      Soru ekle
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="admin-btn admin-btn-ghost admin-btn-icon text-red-600 hover:bg-red-50"
+                                      title="Kitapçık sil"
+                                      disabled={deleteSubmitting === item.id}
+                                      onClick={() => handleDelete(item)}
+                                    >
+                                      <Trash2 size={18} />
+                                    </button>
+                                  </>
+                                )}
                               </td>
                             </tr>
                           ))
@@ -445,79 +556,47 @@ const Booklets = () => {
         </div>
       )}
 
-      {/* Modal: Soru ekle */}
-      {addModalOpen && (
-        <div className="admin-modal-backdrop" onClick={closeAddModal}>
+      {/* Modal: Kitapçık oluştur */}
+      {createBookletModalOpen && createBookletSection && (
+        <div className="admin-modal-backdrop" onClick={closeCreateBookletModal}>
           <div
             className="admin-modal admin-modal-lg"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="admin-modal-header">
-              {addSectionName ? `Bölüme soru ekle: ${addSectionName}` : "Kitapçık bölümüne soru ekle"}
+              Kitapçık oluştur: {getSectionName(createBookletSection)}
             </div>
-            <form onSubmit={handleAddQuestion}>
+            <form onSubmit={handleCreateBooklet}>
               <div className="admin-modal-body space-y-4">
                 <div className="admin-form-group">
-                  <label className="admin-label admin-label-required">Sınav (soru hangi sınava eklenecek)</label>
+                  <label className="admin-label admin-label-required">Ders</label>
                   <select
                     className="admin-input"
-                    value={addForm.examId}
-                    onChange={(e) => setAddForm((f) => ({ ...f, examId: e.target.value }))}
+                    value={createBookletForm.lessonId}
+                    onChange={(e) =>
+                      setCreateBookletForm((f) => ({ ...f, lessonId: e.target.value }))
+                    }
                     required
                   >
-                    <option value="">— Sınav seçin —</option>
-                    {exams.map((ex) => (
-                      <option key={ex.id} value={ex.id}>
-                        {ex.title}
+                    <option value="">Seçin</option>
+                    {lessons.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.name}
                       </option>
                     ))}
                   </select>
                 </div>
-                <div className="admin-form-divider" />
                 <div className="admin-form-group">
-                  <label className="admin-label admin-label-required">Soru metni</label>
-                  <textarea
-                    className="admin-input min-h-[100px]"
-                    value={addForm.stem}
+                  <label className="admin-label">Ad (opsiyonel)</label>
+                  <input
+                    type="text"
+                    className="admin-input"
+                    value={createBookletForm.name}
                     onChange={(e) =>
-                      setAddForm((f) => ({ ...f, stem: e.target.value }))
+                      setCreateBookletForm((f) => ({ ...f, name: e.target.value }))
                     }
-                    placeholder="Soruyu buraya yazın..."
-                    required
+                    placeholder="Örn. Matematik bölümü"
                   />
-                </div>
-                <div className="admin-form-divider" />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="admin-form-group">
-                    <label className="admin-label admin-label-required">Ders</label>
-                    <select
-                      className="admin-input"
-                      value={addForm.lessonId}
-                      onChange={(e) =>
-                        setAddForm((f) => ({ ...f, lessonId: e.target.value }))
-                      }
-                      required
-                    >
-                      <option value="">Seçin</option>
-                      {lessons.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label">Satır adı (opsiyonel)</label>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      value={addForm.name}
-                      onChange={(e) =>
-                        setAddForm((f) => ({ ...f, name: e.target.value }))
-                      }
-                      placeholder="Örn. Matematik - Soru 1"
-                    />
-                  </div>
                 </div>
                 <div className="admin-form-group">
                   <label className="admin-label">Sıra no</label>
@@ -525,20 +604,83 @@ const Booklets = () => {
                     type="number"
                     className="admin-input w-24"
                     min={0}
-                    value={addForm.orderIndex}
+                    value={createBookletForm.orderIndex}
                     onChange={(e) =>
-                      setAddForm((f) => ({
+                      setCreateBookletForm((f) => ({
                         ...f,
                         orderIndex: parseInt(e.target.value, 10) || 0,
                       }))
                     }
                   />
                 </div>
+                <div className="admin-form-group">
+                  <label className="admin-label">Sınava ata (opsiyonel)</label>
+                  <select
+                    className="admin-input"
+                    value={createBookletForm.examId}
+                    onChange={(e) =>
+                      setCreateBookletForm((f) => ({ ...f, examId: e.target.value }))
+                    }
+                  >
+                    <option value="">— Sonra atayabilirsiniz —</option>
+                    {exams.map((ex) => (
+                      <option key={ex.id} value={ex.id}>
+                        {ex.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="admin-modal-footer">
+                <button
+                  type="button"
+                  onClick={closeCreateBookletModal}
+                  className="admin-btn admin-btn-secondary"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  disabled={createBookletSubmitting}
+                  className="admin-btn admin-btn-primary"
+                >
+                  {createBookletSubmitting ? "Oluşturuluyor…" : "Kitapçık oluştur"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Soru ekle (kitapçığa) */}
+      {addQuestionModalOpen && addQuestionBooklet && (
+        <div className="admin-modal-backdrop" onClick={closeAddQuestionModal}>
+          <div
+            className="admin-modal admin-modal-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="admin-modal-header">
+              {addQuestionSectionName ? `Soru ekle: ${addQuestionSectionName}` : "Kitapçığa soru ekle"}
+            </div>
+            <form onSubmit={handleAddQuestion}>
+              <div className="admin-modal-body space-y-4">
+                <div className="admin-form-group">
+                  <label className="admin-label admin-label-required">Soru metni</label>
+                  <textarea
+                    className="admin-input min-h-[100px]"
+                    value={addQuestionForm.stem}
+                    onChange={(e) =>
+                      setAddQuestionForm((f) => ({ ...f, stem: e.target.value }))
+                    }
+                    placeholder="Soruyu buraya yazın..."
+                    required
+                  />
+                </div>
                 <div className="admin-form-divider" />
                 <div>
                   <label className="admin-label block mb-2">Şıklar (en az 2 dolu olmalı)</label>
                   <div className="space-y-2">
-                    {addForm.options.map((opt, index) => (
+                    {addQuestionForm.options.map((opt, index) => (
                       <div key={opt.optionKey} className="flex items-center gap-2">
                         <span className="w-6 font-medium text-slate-600">{opt.optionKey}.</span>
                         <input
@@ -556,12 +698,12 @@ const Booklets = () => {
                   <label className="admin-label admin-label-required">Doğru şık</label>
                   <select
                     className="admin-input w-24"
-                    value={addForm.correctOptionKey}
+                    value={addQuestionForm.correctOptionKey}
                     onChange={(e) =>
-                      setAddForm((f) => ({ ...f, correctOptionKey: e.target.value }))
+                      setAddQuestionForm((f) => ({ ...f, correctOptionKey: e.target.value }))
                     }
                   >
-                    {addForm.options.map((o) => (
+                    {addQuestionForm.options.map((o) => (
                       <option key={o.optionKey} value={o.optionKey}>
                         {o.optionKey}
                       </option>
@@ -572,17 +714,17 @@ const Booklets = () => {
               <div className="admin-modal-footer">
                 <button
                   type="button"
-                  onClick={closeAddModal}
+                  onClick={closeAddQuestionModal}
                   className="admin-btn admin-btn-secondary"
                 >
                   İptal
                 </button>
                 <button
                   type="submit"
-                  disabled={addSubmitting}
+                  disabled={addQuestionSubmitting}
                   className="admin-btn admin-btn-primary"
                 >
-                  {addSubmitting ? "Ekleniyor…" : "Ekle"}
+                  {addQuestionSubmitting ? "Ekleniyor…" : "Ekle"}
                 </button>
               </div>
             </form>

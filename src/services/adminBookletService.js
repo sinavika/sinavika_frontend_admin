@@ -1,5 +1,5 @@
 // AdminQuestionBookletController — api/AdminQuestionBooklet
-// Rapor: API-QUESTIONS-CONTROLLERS-FRONTEND-RAPORU.md — kitapçık satırları, soru ekleme (içerikle)
+// Doc: docs/FRONTEND-API-DEGISIKLIK-RAPORU.md — kitapçık oluştur, soru ekle/güncelle/kaldır, sınava ata
 import adminApi from "@/api/adminApi";
 
 /**
@@ -21,34 +21,86 @@ export const getBookletById = async (id) => {
 };
 
 /**
- * Kitapçık bölümüne yeni soru ekle (içerikle). POST /AdminQuestionBooklet/add-question
- * stem, options, correctOptionKey zorunlu; examSectionId veya questionsTemplateId belirtilmeli.
- * @param {{
- *   examId: string,
- *   examSectionId?: string,
- *   lessonId: string,
- *   name: string,
- *   orderIndex?: number,
- *   questionsTemplateId?: string,
- *   questionTemplateItemId?: string,
- *   stem: string,
- *   options: Array<{ optionKey: string, text: string, orderIndex: number }>,
- *   correctOptionKey: string,
- *   lessonSubId?: string,
- *   publisherId?: string
- * }} data
+ * Code ile kitapçık getir. GET /AdminQuestionBooklet/by-code/{code}
  */
-export const addQuestionToBooklet = async (data) => {
-  const response = await adminApi.post(
-    "/AdminQuestionBooklet/add-question",
-    data
+export const getBookletByCode = async (code) => {
+  const response = await adminApi.get(
+    `/AdminQuestionBooklet/by-code/${encodeURIComponent(code)}`
   );
   return response.data;
 };
 
 /**
- * Kitapçıktan soru satırını kaldır. DELETE /AdminQuestionBooklet/{id}
+ * Kitapçık oluştur. POST /AdminQuestionBooklet
+ * Body: questionsTemplateId, lessonId, name?, orderIndex, examId?
+ * Response: QuestionBookletDto (id, code, examId, ...)
+ */
+export const createBooklet = async (data) => {
+  const response = await adminApi.post("/AdminQuestionBooklet", {
+    questionsTemplateId: data.questionsTemplateId,
+    lessonId: data.lessonId,
+    name: data.name ?? null,
+    orderIndex: Number(data.orderIndex) ?? 0,
+    examId: data.examId ?? null,
+  });
+  return response.data;
+};
+
+/**
+ * Kitapçığa soru ekle. POST /AdminQuestionBooklet/{bookletId}/question
+ * Body: stem, options, correctOptionKey, lessonSubId?, publisherId?
+ */
+export const addQuestionToBooklet = async (bookletId, data) => {
+  const response = await adminApi.post(
+    `/AdminQuestionBooklet/${bookletId}/question`,
+    {
+      stem: data.stem,
+      options: data.options,
+      correctOptionKey: data.correctOptionKey,
+      lessonSubId: data.lessonSubId ?? null,
+      publisherId: data.publisherId ?? null,
+    }
+  );
+  return response.data;
+};
+
+/**
+ * Kitapçıktaki soruyu güncelle. PUT /AdminQuestionBooklet/{bookletId}/question
+ */
+export const updateQuestionInBooklet = async (bookletId, data) => {
+  const response = await adminApi.put(
+    `/AdminQuestionBooklet/${bookletId}/question`,
+    {
+      stem: data.stem,
+      options: data.options,
+      correctOptionKey: data.correctOptionKey,
+      lessonSubId: data.lessonSubId ?? null,
+      publisherId: data.publisherId ?? null,
+    }
+  );
+  return response.data;
+};
+
+/**
+ * Kitapçıktan sadece soruyu kaldır (kitapçık satırı kalır). DELETE /AdminQuestionBooklet/{bookletId}/question
+ */
+export const removeQuestionFromBooklet = async (bookletId) => {
+  await adminApi.delete(`/AdminQuestionBooklet/${bookletId}/question`);
+};
+
+/**
+ * Kitapçık satırını sil (ilişkili soru da silinir). DELETE /AdminQuestionBooklet/{id}
  */
 export const deleteBookletItem = async (id) => {
   await adminApi.delete(`/AdminQuestionBooklet/${id}`);
+};
+
+/**
+ * Kitapçığı sınava ata. PUT /AdminQuestionBooklet/{bookletId}/assign-exam/{examId}
+ */
+export const assignBookletToExam = async (bookletId, examId) => {
+  const response = await adminApi.put(
+    `/AdminQuestionBooklet/${bookletId}/assign-exam/${examId}`
+  );
+  return response.data;
 };

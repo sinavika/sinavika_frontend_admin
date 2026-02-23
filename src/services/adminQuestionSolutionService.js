@@ -1,5 +1,6 @@
 // AdminQuestionSolutionController — api/AdminQuestionSolution
-// Doc: docs/02-Questions-API-Endpoints-Detay.md — Type: 0=ExplanationText, 1=Video, 2=Pdf, 3=Link
+// UYARI (FRONTEND-API-DEGISIKLIK-RAPORU.md): Bu controller backend'de kaldırıldı. Soru çözümü API'si şu an yok.
+// Bu servisi kullanan sayfalar geçici olarak devre dışı bırakılmalı veya "yakında" mesajı gösterilmeli.
 import adminApi from "@/api/adminApi";
 
 /**

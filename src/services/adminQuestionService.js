@@ -32,25 +32,4 @@ export const getQuestionsPaginated = async (params = {}) => {
   return Array.isArray(response.data) ? response.data : [];
 };
 
-/**
- * Kitapçık bölümüne soru ekle. POST /AdminQuestion/add-to-booklet
- * Body: QuestionBookletCreateDto (2.3 ile aynı)
- * @param {{
- *   examId: string,
- *   examSectionId?: string,
- *   lessonId: string,
- *   name: string,
- *   orderIndex?: number,
- *   questionsTemplateId?: string,
- *   questionTemplateItemId?: string,
- *   stem: string,
- *   options: Array<{ optionKey: string, text: string, orderIndex: number }>,
- *   correctOptionKey: string,
- *   lessonSubId?: string,
- *   publisherId?: string
- * }} data
- */
-export const addQuestionToBooklet = async (data) => {
-  const response = await adminApi.post("/AdminQuestion/add-to-booklet", data);
-  return response.data;
-};
+// add-to-booklet kaldırıldı (FRONTEND-API-DEGISIKLIK-RAPORU.md). Soru ekleme: AdminQuestionBooklet üzerinden POST /AdminQuestionBooklet/{bookletId}/question
