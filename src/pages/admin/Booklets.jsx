@@ -1,14 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   FileText,
   Trash2,
   ChevronDown,
   ChevronRight,
   Plus,
+  LayoutTemplate,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { getAllExams } from "@/services/adminExamService";
-import { getSectionsByExamId } from "@/services/adminExamSectionService";
 import { getBookletsByExamId, addQuestionToBooklet, deleteBookletItem } from "@/services/adminBookletService";
 import { getAllBookletTemplates } from "@/services/adminBookletTemplateService";
 import { getAllLessons } from "@/services/adminLessonService";
@@ -31,22 +31,45 @@ const defaultAddForm = () => ({
   correctOptionKey: "A",
 });
 
+// Doc: Şablon setleri questionsTemplateId ile gruplanır; tek satırlı sette questionsTemplateId null olabilir (set id = row id).
+function buildTemplateSets(templates) {
+  if (!Array.isArray(templates) || templates.length === 0) return [];
+  const bySet = new Map();
+  for (const t of templates) {
+    const setId = t.questionsTemplateId ?? t.id;
+    if (!bySet.has(setId)) bySet.set(setId, []);
+    bySet.get(setId).push(t);
+  }
+  return Array.from(bySet.entries()).map(([setId, rows]) => {
+    const sorted = [...rows].sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+    const label = sorted[0]?.name ?? sorted[0]?.code ?? `Şablon seti`;
+    return { setId, label, rows: sorted };
+  });
+}
+
 const Booklets = () => {
   const [exams, setExams] = useState([]);
   const [selectedExam, setSelectedExam] = useState(null);
-  const [sections, setSections] = useState([]);
+  const [selectedTemplateSetId, setSelectedTemplateSetId] = useState("");
   const [booklets, setBooklets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [bookletsLoading, setBookletsLoading] = useState(false);
   const [lessons, setLessons] = useState([]);
+  const [templates, setTemplates] = useState([]);
   const [expandedSectionId, setExpandedSectionId] = useState(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addForm, setAddForm] = useState(defaultAddForm);
-  const [addSectionId, setAddSectionId] = useState(null);
   const [addSectionName, setAddSectionName] = useState("");
   const [addSubmitting, setAddSubmitting] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(null);
-  const [templates, setTemplates] = useState([]);
+
+  const templateSets = useMemo(() => buildTemplateSets(templates), [templates]);
+
+  const selectedSetSections = useMemo(() => {
+    if (!selectedTemplateSetId) return [];
+    const set = templateSets.find((s) => s.setId === selectedTemplateSetId);
+    return set ? set.rows : [];
+  }, [selectedTemplateSetId, templateSets]);
 
   const loadExams = async () => {
     setLoading(true);
@@ -73,74 +96,61 @@ const Booklets = () => {
 
   useEffect(() => {
     if (!selectedExam?.id) {
-      setSections([]);
       setBooklets([]);
       setExpandedSectionId(null);
       return;
     }
     setBookletsLoading(true);
-    Promise.all([
-      getSectionsByExamId(selectedExam.id),
-      getBookletsByExamId(selectedExam.id),
-    ])
-      .then(([secData, bookData]) => {
-        setSections(Array.isArray(secData) ? secData : []);
-        setBooklets(Array.isArray(bookData) ? bookData : []);
-        if (secData?.length > 0 && !expandedSectionId)
-          setExpandedSectionId(secData[0].id);
-      })
+    getBookletsByExamId(selectedExam.id)
+      .then((data) => setBooklets(Array.isArray(data) ? data : []))
       .catch((err) => {
         toast.error(err.message || ERROR_MESSAGES.FETCH_FAILED);
-        setSections([]);
         setBooklets([]);
       })
       .finally(() => setBookletsLoading(false));
   }, [selectedExam?.id]);
 
-  const templateById = Object.fromEntries(
-    templates.map((t) => [String(t.id), t])
-  );
-
-  const bookletsBySection = sections.map((sec) => {
-    const sectionOrTemplateId = sec.questionsTemplateId || sec.id;
-    const items = booklets
-      .filter((b) => String(b.examSectionId) === String(sectionOrTemplateId))
-      .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
-    const template = templateById[String(sectionOrTemplateId)];
-    const targetCount = template?.targetQuestionCount;
-    return {
-      section: sec,
-      sectionOrTemplateId,
-      items,
-      targetQuestionCount: targetCount != null ? targetCount : null,
-    };
-  });
+  // Bölümler = seçilen kitapçık şablonunun satırları (QuestionBookletTemplate). Her satırın id'si = bölüm şablonu Id.
+  const bookletsBySection = useMemo(() => {
+    return selectedSetSections.map((section) => {
+      const templateRowId = section.id;
+      const items = booklets
+        .filter(
+          (b) =>
+            String(b.questionsTemplateId) === String(templateRowId) ||
+            String(b.examSectionId) === String(templateRowId)
+        )
+        .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+      return {
+        section,
+        items,
+        targetQuestionCount: section.targetQuestionCount ?? null,
+      };
+    }, [selectedSetSections, booklets]);
+  }, [selectedSetSections, booklets]);
 
   const getSectionName = (section) =>
-    section?.name ?? `Bölüm ${section?.orderIndex ?? ""}`.trim() ?? section?.id;
+    section?.name ?? section?.code ?? `Bölüm ${section?.orderIndex ?? ""}`.trim() ?? "—";
 
   const openAddModal = (section) => {
-    // Doc: add-question için bölüm şablonu Id = QuestionBookletTemplate.Id zorunlu (şablona göre ekleme).
-    const templateRowId = section?.questionsTemplateId;
-    if (!templateRowId) {
-      toast.error("Bu bölüm için kitapçık şablonu atanmamış. Sınavlar > Yönet > Şablon ata ile önce bir kitapçık şablonu atayın.");
-      return;
-    }
-    const sectionOrTemplateId = templateRowId || section?.id;
-    setAddSectionId(section?.id);
+    // section = QuestionBookletTemplate satırı; section.id = bölüm şablonu Id (doc: add-question için zorunlu).
+    const templateRowId = section.id;
     setAddSectionName(getSectionName(section));
     setAddForm({
       ...defaultAddForm(),
       examSectionId: templateRowId,
       questionsTemplateId: templateRowId,
-      orderIndex: booklets.filter((b) => String(b.examSectionId) === String(sectionOrTemplateId) || String(b.questionsTemplateId) === String(templateRowId)).length,
+      orderIndex: booklets.filter(
+        (b) =>
+          String(b.questionsTemplateId) === String(templateRowId) ||
+          String(b.examSectionId) === String(templateRowId)
+      ).length,
     });
     setAddModalOpen(true);
   };
 
   const closeAddModal = () => {
     setAddModalOpen(false);
-    setAddSectionId(null);
     setAddSectionName("");
     setAddForm(defaultAddForm());
   };
@@ -165,7 +175,7 @@ const Booklets = () => {
     }
     const templateRowId = addForm.questionsTemplateId || addForm.examSectionId;
     if (!templateRowId) {
-      toast.error("Bölüm şablonu (kitapçık şablonu) belirtilmeli. Bu bölüm için Sınavlar > Yönet üzerinden şablon atayın.");
+      toast.error("Bölüm şablonu belirtilmeli. Lütfen sayfadan bir kitapçık şablonu seçip bölüme tekrar girin.");
       return;
     }
     if (!addForm.lessonId?.trim()) {
@@ -230,7 +240,7 @@ const Booklets = () => {
             Kitapçıklar
           </h1>
           <p className="text-slate-500 text-sm">
-            Sınav seçin; bölümler sınava atanan kitapçık şablonlarına göre listelenir. Sorular şablona göre ilgili bölüme eklenir. Önce Kitapçık şablonları tanımlayıp Sınavlar &gt; Yönet ile şablon ataması yapın.
+            Sınav ve kitapçık şablonu seçin; şablonun bölümlerine soru ekleyerek o sınavın kitapçığını doldurun. Önce Kitapçık şablonları sayfasında şablon seti oluşturun.
           </p>
         </div>
       </div>
@@ -239,30 +249,57 @@ const Booklets = () => {
         <strong>Adımlar:</strong>
         <span className="admin-booklet-flow-step">Sınav seçin</span>
         <span className="text-slate-500">→</span>
-        <span className="admin-booklet-flow-step">Bölümü açın</span>
+        <span className="admin-booklet-flow-step">Kitapçık şablonu seçin</span>
         <span className="text-slate-500">→</span>
-        <span className="admin-booklet-flow-step">Soru ekle ile yeni soru girin veya mevcut soruları yönetin</span>
+        <span className="admin-booklet-flow-step">Bölüme soru ekleyin</span>
       </div>
 
-      <div className="admin-card p-4 mb-6 rounded-xl border border-slate-200 shadow-sm">
-        <label className="admin-label mb-2 block font-semibold text-slate-700">Sınav seçin</label>
-        <select
-          className="admin-input max-w-md"
-          value={selectedExam?.id ?? ""}
-          onChange={(e) => {
-            const id = e.target.value;
-            setSelectedExam(exams.find((ex) => String(ex.id) === id) || null);
-          }}
-          disabled={loading}
-        >
-          <option value="">— Sınav seçin —</option>
-          {exams.map((ex) => (
-            <option key={ex.id} value={ex.id}>
-              {ex.title}
-            </option>
-          ))}
-        </select>
-        <p className="text-sm text-slate-500 mt-2">Kitapçık oluşturmak için bir sınav seçin.</p>
+      <div className="admin-card p-4 mb-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+        <div>
+          <label className="admin-label mb-2 block font-semibold text-slate-700">Sınav seçin</label>
+          <select
+            className="admin-input max-w-md"
+            value={selectedExam?.id ?? ""}
+            onChange={(e) => {
+              const id = e.target.value;
+              setSelectedExam(exams.find((ex) => String(ex.id) === id) || null);
+            }}
+            disabled={loading}
+          >
+            <option value="">— Sınav seçin —</option>
+            {exams.map((ex) => (
+              <option key={ex.id} value={ex.id}>
+                {ex.title}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="admin-label mb-2 block font-semibold text-slate-700">
+            <LayoutTemplate size={18} className="inline-block mr-1 align-middle text-emerald-600" />
+            Kitapçık şablonu seçin
+          </label>
+          <select
+            className="admin-input max-w-md"
+            value={selectedTemplateSetId}
+            onChange={(e) => {
+              setSelectedTemplateSetId(e.target.value);
+              const firstRow = templateSets.find((s) => s.setId === e.target.value)?.rows?.[0];
+              if (firstRow) setExpandedSectionId(firstRow.id);
+            }}
+            disabled={loading || templates.length === 0}
+          >
+            <option value="">— Kitapçık şablonu seçin —</option>
+            {templateSets.map((set) => (
+              <option key={set.setId} value={set.setId}>
+                {set.label} ({set.rows.length} bölüm)
+              </option>
+            ))}
+          </select>
+          <p className="text-sm text-slate-500 mt-1">
+            Şablon seti seçildikten sonra bölümler listelenir; her bölüme soru ekleyebilirsiniz.
+          </p>
+        </div>
       </div>
 
       {loading ? (
@@ -273,9 +310,19 @@ const Booklets = () => {
         <div className="admin-empty-state rounded-xl py-12">
           <FileText size={48} className="mx-auto mb-3 text-slate-300" />
           <p className="font-medium text-slate-600">
-            Kitapçık oluşturmak için bir sınav seçin.
+            Önce bir sınav seçin.
           </p>
-          <p className="text-sm mt-1 text-slate-500">Yukarıdaki listeden sınav seçtiğinizde bölümler ve soru ekleme alanları açılır.</p>
+          <p className="text-sm mt-1 text-slate-500">Sınav ve kitapçık şablonu seçtiğinizde bölümler açılır.</p>
+        </div>
+      ) : !selectedTemplateSetId ? (
+        <div className="admin-empty-state rounded-xl py-12">
+          <LayoutTemplate size={48} className="mx-auto mb-3 text-slate-300" />
+          <p className="font-medium text-slate-600">
+            Kitapçık şablonu seçin.
+          </p>
+          <p className="text-sm mt-1 text-slate-500">
+            Yukarıdaki &quot;Kitapçık şablonu seçin&quot; alanından bir şablon seti seçin. Kitapçık şablonu yoksa Kitapçık şablonları sayfasından oluşturun.
+          </p>
         </div>
       ) : bookletsLoading ? (
         <div className="admin-loading-center">
@@ -318,18 +365,12 @@ const Booklets = () => {
                       ({targetQuestionCount - items.length} soru daha ekleyin)
                     </span>
                   )}
-                  {!section.questionsTemplateId && (
-                    <span className="text-xs text-amber-600 font-medium" title="Soru eklemek için Sınavlar > Yönet ile kitapçık şablonu atayın">
-                      (şablon atanmamış)
-                    </span>
-                  )}
                 </button>
                 <button
                   type="button"
                   className="admin-btn admin-btn-primary shrink-0"
                   onClick={() => openAddModal(section)}
-                  disabled={!section.questionsTemplateId}
-                  title={section.questionsTemplateId ? "Bu bölüme soru ekle (şablona göre)" : "Önce Sınavlar > Yönet ile kitapçık şablonu atayın"}
+                  title="Bu bölüme soru ekle"
                 >
                   <Plus size={18} />
                   Soru ekle
@@ -389,13 +430,13 @@ const Booklets = () => {
               )}
             </div>
           );})}
-          {sections.length === 0 && (
+          {selectedSetSections.length === 0 && selectedTemplateSetId && (
             <div className="admin-empty-state rounded-xl py-12">
               <p className="font-medium text-slate-600">
-                Bu sınav için henüz bölüm atanmamış.
+                Bu şablon setinde bölüm satırı yok.
               </p>
               <p className="text-sm mt-1 text-slate-500">
-                Önce Sınavlar sayfasında sınavı seçip Yönet Bölümler üzerinden kitapçık şablonu atayın; bölümler şablona göre listelenir ve bölümlere soru ekleyebilirsiniz.
+                Kitapçık şablonları sayfasından bu sete bölüm ekleyin veya başka bir şablon seçin.
               </p>
             </div>
           )}
