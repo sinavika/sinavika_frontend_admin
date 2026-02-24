@@ -77,7 +77,7 @@ const Booklets = () => {
   }, [categorySections, booklets]);
 
   const getSectionName = (section) =>
-    section?.name ?? `Bölüm ${section?.orderIndex ?? ""}`.trim() || "—";
+    (section?.name ?? `Bölüm ${section?.orderIndex ?? ""}`.trim()) || "—";
 
   const openCreateBookletModal = (section) => {
     const count = booklets.filter((b) => String(b.categorySectionId) === String(section.id)).length;
