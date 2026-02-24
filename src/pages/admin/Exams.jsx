@@ -33,7 +33,6 @@ import {
   deleteSection,
 } from "@/services/adminExamSectionService";
 import { getSectionsBySubId } from "@/services/adminCategorySectionService";
-import { getBookletTemplatesByCategorySubId } from "@/services/adminBookletTemplateService";
 import {
   getQuotasBySectionId,
   createQuota,
@@ -137,8 +136,7 @@ const Exams = () => {
   const [manageAssignments, setManageAssignments] = useState([]);
   const [manageLoading, setManageLoading] = useState(false);
   const [categorySectionsForAssign, setCategorySectionsForAssign] = useState([]);
-  const [questionTemplatesForAssign, setQuestionTemplatesForAssign] = useState([]);
-  const [assignForm, setAssignForm] = useState({ categoriesSectionId: "", questionsTemplateId: "", orderIndex: 0 });
+  const [assignForm, setAssignForm] = useState({ categoriesSectionId: "", orderIndex: 0 });
   const [sectionForm, setSectionForm] = useState({ name: "", orderIndex: 0, durationMinutes: 30, questionCountTarget: 10, quotas: [] });
   const [assignmentForm, setAssignmentForm] = useState({ questionId: "", sectionId: "", orderIndex: 0 });
   const [sectionEditForm, setSectionEditForm] = useState(null);
@@ -549,10 +547,9 @@ const Exams = () => {
   const openManageModal = async (item) => {
     setManageExam(item);
     setManageTab("sections");
-    setAssignForm({ categoriesSectionId: "", questionsTemplateId: "", orderIndex: 0 });
+    setAssignForm({ categoriesSectionId: "", orderIndex: 0 });
     setSectionEditForm(null);
     setCategorySectionsForAssign([]);
-    setQuestionTemplatesForAssign([]);
     setAssignmentForm({ questionId: "", sectionId: "", orderIndex: 0 });
     setManageLoading(true);
     try {
@@ -566,17 +563,15 @@ const Exams = () => {
         }
       }
       const categorySubId = exam?.categorySubId;
-      const [sections, assignments, catSections, qTemplates] = await Promise.all([
+      const [sections, assignments, catSections] = await Promise.all([
         getSectionsByExamId(item.id),
         getAssignmentsByExamId(item.id),
         categorySubId ? getSectionsBySubId(categorySubId) : Promise.resolve([]),
-        categorySubId ? getBookletTemplatesByCategorySubId(categorySubId) : Promise.resolve([]),
       ]);
       const secs = Array.isArray(sections) ? sections : [];
       setManageSections(secs);
       setManageAssignments(Array.isArray(assignments) ? assignments : []);
       setCategorySectionsForAssign(Array.isArray(catSections) ? catSections : []);
-      setQuestionTemplatesForAssign(Array.isArray(qTemplates) ? qTemplates : []);
       setAssignmentForm((f) => ({ ...f, sectionId: secs[0]?.id ?? "", orderIndex: 0 }));
     } catch (err) {
       toast.error(err.message || ERROR_MESSAGES.FETCH_FAILED);
@@ -612,19 +607,18 @@ const Exams = () => {
   const handleAssignTemplate = async (e) => {
     e.preventDefault();
     if (!manageExam || manageExam.isLocked) return;
-    if (!assignForm.categoriesSectionId || !assignForm.questionsTemplateId) {
-      toast.error("Bölüm şablonu ve soru şablonu seçin.");
+    if (!assignForm.categoriesSectionId) {
+      toast.error("Bölüm şablonu (CategorySection) seçin.");
       return;
     }
     setSubmitting(true);
     try {
       await assignTemplateToExam(manageExam.id, {
         categoriesSectionId: assignForm.categoriesSectionId,
-        questionsTemplateId: assignForm.questionsTemplateId,
         orderIndex: Number(assignForm.orderIndex) ?? 0,
       });
-      toast.success("Şablon atandı.");
-      setAssignForm((f) => ({ ...f, categoriesSectionId: "", questionsTemplateId: "", orderIndex: manageSections.length }));
+      toast.success("Bölüm atandı.");
+      setAssignForm((f) => ({ ...f, categoriesSectionId: "", orderIndex: manageSections.length }));
       loadManageSections();
       loadExams();
     } catch (err) {
@@ -1194,7 +1188,7 @@ const Exams = () => {
                   )}
                   {manageExam.categorySubId && !manageExam.isLocked && (
                     <form onSubmit={handleAssignTemplate} className="admin-card p-4">
-                      <div className="font-medium text-slate-700 mb-3">Şablon ata (bölüm + soru şablonu)</div>
+                      <div className="font-medium text-slate-700 mb-3">Bölüm ata (CategorySection)</div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                         <div className="col-span-2 sm:col-span-1">
                           <label className="admin-label">Bölüm şablonu</label>
@@ -1205,21 +1199,12 @@ const Exams = () => {
                             ))}
                           </select>
                         </div>
-                        <div className="col-span-2 sm:col-span-1">
-                          <label className="admin-label">Soru şablonu</label>
-                          <select className="admin-input" value={assignForm.questionsTemplateId} onChange={(e) => setAssignForm((f) => ({ ...f, questionsTemplateId: e.target.value }))} required>
-                            <option value="">Seçin</option>
-                            {questionTemplatesForAssign.map((qt) => (
-                              <option key={qt.id} value={qt.id}>{qt.name} (hedef: {qt.targetQuestionCount ?? qt.totalQuestionCount ?? 0} soru)</option>
-                            ))}
-                          </select>
-                        </div>
                         <div>
                           <label className="admin-label">Sıra</label>
                           <input type="number" className="admin-input" min={0} value={assignForm.orderIndex} onChange={(e) => setAssignForm((f) => ({ ...f, orderIndex: e.target.value }))} />
                         </div>
                         <div className="flex items-end">
-                          <button type="submit" disabled={submitting || categorySectionsForAssign.length === 0 || questionTemplatesForAssign.length === 0} className="admin-btn admin-btn-primary">Şablon ata</button>
+                          <button type="submit" disabled={submitting || categorySectionsForAssign.length === 0} className="admin-btn admin-btn-primary">Bölüm ata</button>
                         </div>
                       </div>
                     </form>

@@ -8,26 +8,21 @@ import {
   LayoutTemplate,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { getAllExams } from "@/services/adminExamService";
 import {
-  getBookletsByExamId,
   createBooklet,
   addQuestionToBooklet,
   removeQuestionFromBooklet,
   deleteBookletItem,
 } from "@/services/adminBookletService";
-import { getAllBookletTemplates } from "@/services/adminBookletTemplateService";
-import { getAllLessons } from "@/services/adminLessonService";
+import { getAllCategorySections } from "@/services/adminCategorySectionService";
 import { ERROR_MESSAGES } from "@/constants";
 
 const OPTION_KEYS = ["A", "B", "C", "D", "E"];
 
 const defaultCreateBookletForm = () => ({
-  questionsTemplateId: "",
-  lessonId: "",
+  categorySectionId: "",
   name: "",
   orderIndex: 0,
-  examId: "",
 });
 
 const defaultQuestionForm = () => ({
@@ -40,31 +35,10 @@ const defaultQuestionForm = () => ({
   correctOptionKey: "A",
 });
 
-// Doc: Şablon setleri questionsTemplateId ile gruplanır; tek satırlı sette questionsTemplateId null olabilir (set id = row id).
-function buildTemplateSets(templates) {
-  if (!Array.isArray(templates) || templates.length === 0) return [];
-  const bySet = new Map();
-  for (const t of templates) {
-    const setId = t.questionsTemplateId ?? t.id;
-    if (!bySet.has(setId)) bySet.set(setId, []);
-    bySet.get(setId).push(t);
-  }
-  return Array.from(bySet.entries()).map(([setId, rows]) => {
-    const sorted = [...rows].sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
-    const label = sorted[0]?.name ?? sorted[0]?.code ?? `Şablon seti`;
-    return { setId, label, rows: sorted };
-  });
-}
-
 const Booklets = () => {
-  const [exams, setExams] = useState([]);
-  const [selectedExam, setSelectedExam] = useState(null);
-  const [selectedTemplateSetId, setSelectedTemplateSetId] = useState("");
+  const [categorySections, setCategorySections] = useState([]);
   const [booklets, setBooklets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [bookletsLoading, setBookletsLoading] = useState(false);
-  const [lessons, setLessons] = useState([]);
-  const [templates, setTemplates] = useState([]);
   const [expandedSectionId, setExpandedSectionId] = useState(null);
   const [createBookletModalOpen, setCreateBookletModalOpen] = useState(false);
   const [createBookletForm, setCreateBookletForm] = useState(defaultCreateBookletForm);
@@ -78,87 +52,41 @@ const Booklets = () => {
   const [deleteSubmitting, setDeleteSubmitting] = useState(null);
   const [removeQuestionSubmitting, setRemoveQuestionSubmitting] = useState(null);
 
-  const templateSets = useMemo(() => buildTemplateSets(templates), [templates]);
-
-  const selectedSetSections = useMemo(() => {
-    if (!selectedTemplateSetId) return [];
-    const set = templateSets.find((s) => s.setId === selectedTemplateSetId);
-    return set ? set.rows : [];
-  }, [selectedTemplateSetId, templateSets]);
-
-  const loadExams = async () => {
-    setLoading(true);
-    try {
-      const data = await getAllExams();
-      setExams(Array.isArray(data) ? data : []);
-    } catch (err) {
-      toast.error(err.message || ERROR_MESSAGES.FETCH_FAILED);
-      setExams([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadExams();
-    getAllLessons()
-      .then((data) => setLessons(Array.isArray(data) ? data : []))
-      .catch(() => setLessons([]));
-    getAllBookletTemplates()
-      .then((data) => setTemplates(Array.isArray(data) ? data : []))
-      .catch(() => setTemplates([]));
-  }, []);
-
-  useEffect(() => {
-    if (!selectedExam?.id) {
-      setBookletsLoading(false);
-      return;
-    }
-    setBookletsLoading(true);
-    getBookletsByExamId(selectedExam.id)
-      .then((data) => setBooklets(Array.isArray(data) ? data : []))
+    getAllCategorySections()
+      .then((data) => setCategorySections(Array.isArray(data) ? data : []))
       .catch((err) => {
         toast.error(err.message || ERROR_MESSAGES.FETCH_FAILED);
-        setBooklets([]);
+        setCategorySections([]);
       })
-      .finally(() => setBookletsLoading(false));
-  }, [selectedExam?.id]);
+      .finally(() => setLoading(false));
+  }, []);
 
-  // Bölümler = seçilen kitapçık şablonunun satırları (QuestionBookletTemplate). Her satırın id'si = bölüm şablonu Id.
+  // Bölümler = CategorySection; kitapçıklar bölüm bazlı (categorySectionId). Liste API kaldırıldığı için sadece bu oturumda oluşturulan kitapçıklar state'te.
   const bookletsBySection = useMemo(() => {
-    return selectedSetSections.map((section) => {
-      const templateRowId = section.id;
+    return categorySections.map((section) => {
       const items = booklets
-        .filter(
-          (b) =>
-            String(b.questionsTemplateId) === String(templateRowId) ||
-            String(b.examSectionId) === String(templateRowId)
-        )
+        .filter((b) => String(b.categorySectionId) === String(section.id))
         .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
       return {
         section,
         items,
-        targetQuestionCount: section.targetQuestionCount ?? null,
+        targetQuestionCount: section.questionCount ?? section.targetQuestions ?? null,
       };
-    }, [selectedSetSections, booklets]);
-  }, [selectedSetSections, booklets]);
+    }, [categorySections, booklets]);
+  }, [categorySections, booklets]);
 
   const getSectionName = (section) =>
-    section?.name ?? section?.code ?? `Bölüm ${section?.orderIndex ?? ""}`.trim() ?? "—";
+    section?.name ?? `Bölüm ${section?.orderIndex ?? ""}`.trim() || "—";
 
   const openCreateBookletModal = (section) => {
-    const templateRowId = section.id;
-    const count = booklets.filter(
-      (b) =>
-        String(b.questionsTemplateId) === String(templateRowId) ||
-        String(b.examSectionId) === String(templateRowId)
-    ).length;
+    const count = booklets.filter((b) => String(b.categorySectionId) === String(section.id)).length;
     setCreateBookletSection(section);
     setCreateBookletForm({
       ...defaultCreateBookletForm(),
-      questionsTemplateId: templateRowId,
+      categorySectionId: section.id,
+      name: section.name ?? "",
       orderIndex: count,
-      examId: selectedExam?.id ?? "",
     });
     setCreateBookletModalOpen(true);
   };
@@ -171,33 +99,22 @@ const Booklets = () => {
 
   const handleCreateBooklet = async (e) => {
     e.preventDefault();
-    if (!createBookletForm.questionsTemplateId?.trim()) {
-      toast.error("Bölüm şablonu gerekli.");
-      return;
-    }
-    if (!createBookletForm.lessonId?.trim()) {
-      toast.error("Ders seçin.");
+    if (!createBookletForm.categorySectionId?.trim()) {
+      toast.error("Bölüm (CategorySection) gerekli.");
       return;
     }
     setCreateBookletSubmitting(true);
     try {
       const data = await createBooklet({
-        questionsTemplateId: createBookletForm.questionsTemplateId.trim(),
-        lessonId: createBookletForm.lessonId.trim(),
+        categorySectionId: createBookletForm.categorySectionId.trim(),
         name: createBookletForm.name?.trim() || null,
         orderIndex: createBookletForm.orderIndex ?? 0,
-        examId: createBookletForm.examId?.trim() || null,
       });
       toast.success("Kitapçık oluşturuldu. Şimdi soru ekleyebilirsiniz.");
-      if (selectedExam?.id && data.examId) {
-        const list = await getBookletsByExamId(selectedExam.id);
-        setBooklets(Array.isArray(list) ? list : []);
-      } else {
-        setBooklets((prev) => [...prev, data]);
-      }
+      setBooklets((prev) => [...prev, data]);
       closeCreateBookletModal();
     } catch (err) {
-      toast.error(err.message || "Kitapçık oluşturulamadı.");
+      toast.error(err.response?.data?.error || err.message || "Kitapçık oluşturulamadı.");
     } finally {
       setCreateBookletSubmitting(false);
     }
@@ -237,36 +154,20 @@ const Booklets = () => {
     }
     setAddQuestionSubmitting(true);
     try {
-      await addQuestionToBooklet(addQuestionBooklet.id, {
+      const updated = await addQuestionToBooklet(addQuestionBooklet.id, {
         stem: addQuestionForm.stem.trim(),
         options,
         correctOptionKey: addQuestionForm.correctOptionKey,
       });
       toast.success("Soru kitapçığa eklendi.");
       closeAddQuestionModal();
-      if (selectedExam?.id) {
-        const data = await getBookletsByExamId(selectedExam.id);
-        setBooklets(Array.isArray(data) ? data : []);
-      } else {
-        setBooklets((prev) =>
-          prev.map((b) =>
-            b.id === addQuestionBooklet.id
-              ? { ...b, questionId: true, stem: addQuestionForm.stem.trim(), correctOptionKey: addQuestionForm.correctOptionKey, questionCode: b.code }
-              : b
-          )
-        );
-      }
+      setBooklets((prev) =>
+        prev.map((b) => (b.id === addQuestionBooklet.id ? updated : b))
+      );
     } catch (err) {
       toast.error(err.message || "Soru eklenemedi.");
     } finally {
       setAddQuestionSubmitting(false);
-    }
-  };
-
-  const refetchBooklets = async () => {
-    if (selectedExam?.id) {
-      const data = await getBookletsByExamId(selectedExam.id);
-      setBooklets(Array.isArray(data) ? data : []);
     }
   };
 
@@ -275,15 +176,11 @@ const Booklets = () => {
     try {
       await removeQuestionFromBooklet(booklet.id);
       toast.success("Soru kitapçıktan kaldırıldı.");
-      if (selectedExam?.id) {
-        await refetchBooklets();
-      } else {
-        setBooklets((prev) =>
-          prev.map((b) =>
-            b.id === booklet.id ? { ...b, questionId: null, stem: null, correctOptionKey: null, questionCode: null } : b
-          )
-        );
-      }
+      setBooklets((prev) =>
+        prev.map((b) =>
+          b.id === booklet.id ? { ...b, questionId: null, stem: null, correctOptionKey: null, questionCode: null, optionsJson: null } : b
+        )
+      );
     } catch (err) {
       toast.error(err.message || "Soru kaldırılamadı.");
     } finally {
@@ -292,17 +189,11 @@ const Booklets = () => {
   };
 
   const handleDelete = async (item) => {
-    const examIdToRefetch = selectedExam?.id || item.examId;
     setDeleteSubmitting(item.id);
     try {
       await deleteBookletItem(item.id);
       toast.success("Kitapçık satırı kaldırıldı.");
-      if (examIdToRefetch) {
-        const data = await getBookletsByExamId(examIdToRefetch);
-        setBooklets(Array.isArray(data) ? data : []);
-      } else {
-        setBooklets((prev) => prev.filter((b) => b.id !== item.id));
-      }
+      setBooklets((prev) => prev.filter((b) => b.id !== item.id));
     } catch (err) {
       toast.error(err.message || "Kaldırılamadı.");
     } finally {
@@ -328,14 +219,14 @@ const Booklets = () => {
             Kitapçıklar
           </h1>
           <p className="text-slate-500 text-sm">
-            Kitapçık şablonu seçin; şablonun bölümlerine soru ekleyerek kitapçık oluşturun. Soru eklerken sorunun hangi sınava ait olacağını seçersiniz.
+            Bölüm (CategorySection) bazlı kitapçık oluşturun; her bölüm için kitapçık slotu açıp soru ekleyin. Kitapçık–sınav ilişkisi kaldırıldı.
           </p>
         </div>
       </div>
 
       <div className="admin-booklet-flow mb-6">
         <strong>Adımlar:</strong>
-        <span className="admin-booklet-flow-step">Kitapçık şablonu seçin</span>
+        <span className="admin-booklet-flow-step">Bölüm (CategorySection) seçin</span>
         <span className="text-slate-500">→</span>
         <span className="admin-booklet-flow-step">Bölüm için kitapçık oluştur</span>
         <span className="text-slate-500">→</span>
@@ -343,70 +234,22 @@ const Booklets = () => {
       </div>
 
       <div className="admin-card p-4 mb-6 rounded-xl border border-slate-200 shadow-sm">
-        <label className="admin-label mb-2 block font-semibold text-slate-700">
-          <LayoutTemplate size={18} className="inline-block mr-1 align-middle text-emerald-600" />
-          Kitapçık şablonu seçin
-        </label>
-        <select
-          className="admin-input max-w-md"
-          value={selectedTemplateSetId}
-          onChange={(e) => {
-            setSelectedTemplateSetId(e.target.value);
-            const firstRow = templateSets.find((s) => s.setId === e.target.value)?.rows?.[0];
-            if (firstRow) setExpandedSectionId(firstRow.id);
-          }}
-          disabled={loading || templates.length === 0}
-        >
-          <option value="">— Kitapçık şablonu seçin —</option>
-          {templateSets.map((set) => (
-            <option key={set.setId} value={set.setId}>
-              {set.label} ({set.rows.length} bölüm)
-            </option>
-          ))}
-        </select>
-        <p className="text-sm text-slate-500 mt-1">
-          Şablonu seçtiğinizde bölümler listelenir; her bölüm için önce &quot;Kitapçık oluştur&quot;, sonra oluşan kitapçığa &quot;Soru ekle&quot; ile soru ekleyebilirsiniz. Mevcut kitapçıkları görmek için aşağıdan sınav seçin.
+        <p className="text-sm text-slate-600">
+          Kitapçıklar artık <strong>bölüm (CategorySection)</strong> bazlıdır; sınav–kitapçık ilişkisi kaldırıldı. Aşağıda tüm bölümler listelenir; her bölüm için &quot;Kitapçık oluştur&quot;, sonra oluşan kitapçığa &quot;Soru ekle&quot; ile soru ekleyebilirsiniz. Bu sayfada yalnızca bu oturumda oluşturduğunuz kitapçıklar listelenir.
         </p>
-        {templateSets.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-slate-200">
-            <label className="admin-label mb-1 block text-sm text-slate-500">Mevcut soruları görmek için sınav seçin (opsiyonel)</label>
-            <select
-              className="admin-input max-w-md text-sm"
-              value={selectedExam?.id ?? ""}
-              onChange={(e) => {
-                const id = e.target.value;
-                setSelectedExam(exams.find((ex) => String(ex.id) === id) || null);
-              }}
-              disabled={loading}
-            >
-              <option value="">— Sınav seçmeden devam edebilirsiniz —</option>
-              {exams.map((ex) => (
-                <option key={ex.id} value={ex.id}>
-                  {ex.title}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
       </div>
 
       {loading ? (
         <div className="admin-loading-center">
           <span className="admin-spinner" />
         </div>
-      ) : !selectedTemplateSetId ? (
+      ) : categorySections.length === 0 ? (
         <div className="admin-empty-state rounded-xl py-12">
           <LayoutTemplate size={48} className="mx-auto mb-3 text-slate-300" />
-          <p className="font-medium text-slate-600">
-            Kitapçık şablonu seçin.
-          </p>
+          <p className="font-medium text-slate-600">Bölüm bulunamadı.</p>
           <p className="text-sm mt-1 text-slate-500">
-            Yukarıdaki &quot;Kitapçık şablonu seçin&quot; alanından bir şablon seti seçin. Kitapçık şablonu yoksa Kitapçık şablonları sayfasından oluşturun.
+            Kategoriler sayfasından bölüm (CategorySection) tanımlayın.
           </p>
-        </div>
-      ) : bookletsLoading ? (
-        <div className="admin-loading-center">
-          <span className="admin-spinner" />
         </div>
       ) : (
         <div className="space-y-4">
@@ -543,16 +386,6 @@ const Booklets = () => {
               )}
             </div>
           );})}
-          {selectedSetSections.length === 0 && selectedTemplateSetId && (
-            <div className="admin-empty-state rounded-xl py-12">
-              <p className="font-medium text-slate-600">
-                Bu şablon setinde bölüm satırı yok.
-              </p>
-              <p className="text-sm mt-1 text-slate-500">
-                Kitapçık şablonları sayfasından bu sete bölüm ekleyin veya başka bir şablon seçin.
-              </p>
-            </div>
-          )}
         </div>
       )}
 
@@ -569,22 +402,14 @@ const Booklets = () => {
             <form onSubmit={handleCreateBooklet}>
               <div className="admin-modal-body space-y-4">
                 <div className="admin-form-group">
-                  <label className="admin-label admin-label-required">Ders</label>
-                  <select
-                    className="admin-input"
-                    value={createBookletForm.lessonId}
-                    onChange={(e) =>
-                      setCreateBookletForm((f) => ({ ...f, lessonId: e.target.value }))
-                    }
-                    required
-                  >
-                    <option value="">Seçin</option>
-                    {lessons.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.name}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="admin-label">Bölüm</label>
+                  <input
+                    type="text"
+                    className="admin-input bg-slate-50"
+                    value={getSectionName(createBookletSection)}
+                    readOnly
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Ders bilgisi backend tarafından bölümden alınır.</p>
                 </div>
                 <div className="admin-form-group">
                   <label className="admin-label">Ad (opsiyonel)</label>
@@ -595,7 +420,7 @@ const Booklets = () => {
                     onChange={(e) =>
                       setCreateBookletForm((f) => ({ ...f, name: e.target.value }))
                     }
-                    placeholder="Örn. Matematik bölümü"
+                    placeholder="Verilmezse bölüm adı kullanılır"
                   />
                 </div>
                 <div className="admin-form-group">
@@ -612,23 +437,6 @@ const Booklets = () => {
                       }))
                     }
                   />
-                </div>
-                <div className="admin-form-group">
-                  <label className="admin-label">Sınava ata (opsiyonel)</label>
-                  <select
-                    className="admin-input"
-                    value={createBookletForm.examId}
-                    onChange={(e) =>
-                      setCreateBookletForm((f) => ({ ...f, examId: e.target.value }))
-                    }
-                  >
-                    <option value="">— Sonra atayabilirsiniz —</option>
-                    {exams.map((ex) => (
-                      <option key={ex.id} value={ex.id}>
-                        {ex.title}
-                      </option>
-                    ))}
-                  </select>
                 </div>
               </div>
               <div className="admin-modal-footer">

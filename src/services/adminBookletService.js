@@ -1,16 +1,6 @@
 // AdminQuestionBookletController — api/AdminQuestionBooklet
-// Doc: docs/FRONTEND-API-DEGISIKLIK-RAPORU.md — kitapçık oluştur, soru ekle/güncelle/kaldır, sınava ata
+// Doc: docs/FRONTEND-API-DEGISIKLIK-RAPORU.md — CategorySection tabanlı; examId kaldırıldı
 import adminApi from "@/api/adminApi";
-
-/**
- * Sınava ait kitapçık satırlarını listele. GET /AdminQuestionBooklet/by-exam/{examId}
- */
-export const getBookletsByExamId = async (examId) => {
-  const response = await adminApi.get(
-    `/AdminQuestionBooklet/by-exam/${examId}`
-  );
-  return Array.isArray(response.data) ? response.data : [];
-};
 
 /**
  * Kitapçık satırı detayı. GET /AdminQuestionBooklet/{id}
@@ -32,16 +22,15 @@ export const getBookletByCode = async (code) => {
 
 /**
  * Kitapçık oluştur. POST /AdminQuestionBooklet
- * Body: questionsTemplateId, lessonId, name?, orderIndex, examId?
- * Response: QuestionBookletDto (id, code, examId, ...)
+ * Body: categorySectionId (zorunlu), name? (opsiyonel), orderIndex (zorunlu).
+ * Backend LessonId'yi CategorySection'dan alır. examId kaldırıldı.
+ * Response: QuestionBookletDto (id, code, categorySectionId, categorySectionName, ...)
  */
 export const createBooklet = async (data) => {
   const response = await adminApi.post("/AdminQuestionBooklet", {
-    questionsTemplateId: data.questionsTemplateId,
-    lessonId: data.lessonId,
-    name: data.name ?? null,
+    categorySectionId: data.categorySectionId,
+    name: data.name?.trim() || null,
     orderIndex: Number(data.orderIndex) ?? 0,
-    examId: data.examId ?? null,
   });
   return response.data;
 };
@@ -93,14 +82,4 @@ export const removeQuestionFromBooklet = async (bookletId) => {
  */
 export const deleteBookletItem = async (id) => {
   await adminApi.delete(`/AdminQuestionBooklet/${id}`);
-};
-
-/**
- * Kitapçığı sınava ata. PUT /AdminQuestionBooklet/{bookletId}/assign-exam/{examId}
- */
-export const assignBookletToExam = async (bookletId, examId) => {
-  const response = await adminApi.put(
-    `/AdminQuestionBooklet/${bookletId}/assign-exam/${examId}`
-  );
-  return response.data;
 };
