@@ -1,6 +1,17 @@
 // AdminQuestionBookletController — api/AdminQuestionBooklet
-// Doc: docs/FRONTEND-API-DEGISIKLIK-RAPORU.md — CategorySection tabanlı; examId kaldırıldı
+// Doc: docs/FRONTEND-API-DEGISIKLIK-RAPORU.md — CategorySection tabanlı; Şubat 2025: slots-for-section, slots-for-feature, by-section
 import adminApi from "@/api/adminApi";
+
+/**
+ * Bölüme göre slot listesi. GET /AdminQuestionBooklet/by-section/{categorySectionId}
+ * Response: QuestionBookletDto[]
+ */
+export const getBookletsBySectionId = async (categorySectionId) => {
+  const response = await adminApi.get(
+    `/AdminQuestionBooklet/by-section/${categorySectionId}`
+  );
+  return Array.isArray(response.data) ? response.data : [];
+};
 
 /**
  * Kitapçık satırı detayı. GET /AdminQuestionBooklet/{id}
@@ -21,16 +32,37 @@ export const getBookletByCode = async (code) => {
 };
 
 /**
- * Kitapçık oluştur. POST /AdminQuestionBooklet
+ * Kitapçık oluştur (tek slot). POST /AdminQuestionBooklet
  * Body: categorySectionId (zorunlu), name? (opsiyonel), orderIndex (zorunlu).
- * Backend LessonId'yi CategorySection'dan alır. examId kaldırıldı.
- * Response: QuestionBookletDto (id, code, categorySectionId, categorySectionName, ...)
+ * 400: CategorySectionId geçersiz veya bölümdeki slot kotası (QuestionCount) dolu.
  */
 export const createBooklet = async (data) => {
   const response = await adminApi.post("/AdminQuestionBooklet", {
     categorySectionId: data.categorySectionId,
     name: data.name?.trim() || null,
     orderIndex: Number(data.orderIndex) ?? 0,
+  });
+  return response.data;
+};
+
+/**
+ * Tek bölüm için eksik slotları toplu oluştur. POST /AdminQuestionBooklet/slots-for-section
+ * Body: { categorySectionId }. Response: CreateSlotsResultDto (createdCount, slots, message)
+ */
+export const createSlotsForSection = async (categorySectionId) => {
+  const response = await adminApi.post("/AdminQuestionBooklet/slots-for-section", {
+    categorySectionId,
+  });
+  return response.data;
+};
+
+/**
+ * Bir özelliğin (feature) tüm bölümleri için eksik slotları toplu oluştur. POST /AdminQuestionBooklet/slots-for-feature
+ * Body: { categoryFeatureId }. Response: CreateSlotsResultDto
+ */
+export const createSlotsForFeature = async (categoryFeatureId) => {
+  const response = await adminApi.post("/AdminQuestionBooklet/slots-for-feature", {
+    categoryFeatureId,
   });
   return response.data;
 };

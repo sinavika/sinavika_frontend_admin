@@ -9,7 +9,10 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
+  getBookletsBySectionId,
   createBooklet,
+  createSlotsForSection,
+  createSlotsForFeature,
   addQuestionToBooklet,
   removeQuestionFromBooklet,
   deleteBookletItem,
@@ -51,6 +54,9 @@ const Booklets = () => {
   const [addQuestionSubmitting, setAddQuestionSubmitting] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(null);
   const [removeQuestionSubmitting, setRemoveQuestionSubmitting] = useState(null);
+  const [sectionLoadingId, setSectionLoadingId] = useState(null);
+  const [slotsCreatingSectionId, setSlotsCreatingSectionId] = useState(null);
+  const [slotsCreatingFeatureId, setSlotsCreatingFeatureId] = useState(null);
 
   useEffect(() => {
     getAllCategorySections()
@@ -62,7 +68,82 @@ const Booklets = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  // Bölümler = CategorySection; kitapçıklar bölüm bazlı (categorySectionId). Liste API kaldırıldığı için sadece bu oturumda oluşturulan kitapçıklar state'te.
+  useEffect(() => {
+    if (!expandedSectionId) return;
+    setSectionLoadingId(expandedSectionId);
+    getBookletsBySectionId(expandedSectionId)
+      .then((data) => {
+        setBooklets((prev) => {
+          const rest = prev.filter((b) => String(b.categorySectionId) !== String(expandedSectionId));
+          return [...rest, ...(Array.isArray(data) ? data : [])];
+        });
+      })
+      .catch((err) => {
+        toast.error(err.message || ERROR_MESSAGES.FETCH_FAILED);
+      })
+      .finally(() => setSectionLoadingId(null));
+  }, [expandedSectionId]);
+
+  const loadSectionSlots = async (sectionId) => {
+    setSectionLoadingId(sectionId);
+    try {
+      const data = await getBookletsBySectionId(sectionId);
+      setBooklets((prev) => {
+        const rest = prev.filter((b) => String(b.categorySectionId) !== String(sectionId));
+        return [...rest, ...(Array.isArray(data) ? data : [])];
+      });
+    } catch (err) {
+      toast.error(err.message || ERROR_MESSAGES.FETCH_FAILED);
+    } finally {
+      setSectionLoadingId(null);
+    }
+  };
+
+  const handleCreateSlotsForSection = async (section) => {
+    setSlotsCreatingSectionId(section.id);
+    try {
+      const result = await createSlotsForSection(section.id);
+      const slots = result?.slots ?? [];
+      if (slots.length > 0) {
+        setBooklets((prev) => {
+          const rest = prev.filter((b) => String(b.categorySectionId) !== String(section.id));
+          return [...rest, ...slots];
+        });
+      }
+      toast.success(result?.message ?? `${result?.createdCount ?? 0} slot oluşturuldu.`);
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || "Slotlar oluşturulamadı.");
+    } finally {
+      setSlotsCreatingSectionId(null);
+    }
+  };
+
+  const handleCreateSlotsForFeature = async (categoryFeatureId) => {
+    if (!categoryFeatureId) return;
+    setSlotsCreatingFeatureId(categoryFeatureId);
+    try {
+      const result = await createSlotsForFeature(categoryFeatureId);
+      const slots = result?.slots ?? [];
+      if (slots.length > 0) {
+        setBooklets((prev) => {
+          const existingIds = new Set(prev.map((b) => b.id));
+          const newSlots = slots.filter((s) => !existingIds.has(s.id));
+          return [...prev, ...newSlots];
+        });
+      }
+      toast.success(result?.message ?? `${result?.createdCount ?? 0} slot oluşturuldu.`);
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || "Slotlar oluşturulamadı.");
+    } finally {
+      setSlotsCreatingFeatureId(null);
+    }
+  };
+
+  const uniqueFeatureIds = useMemo(() => {
+    const ids = categorySections.map((s) => s.categoryFeatureId).filter(Boolean);
+    return [...new Set(ids)];
+  }, [categorySections]);
+
   const bookletsBySection = useMemo(() => {
     return categorySections.map((section) => {
       const items = booklets
@@ -114,7 +195,11 @@ const Booklets = () => {
       setBooklets((prev) => [...prev, data]);
       closeCreateBookletModal();
     } catch (err) {
-      toast.error(err.response?.data?.error || err.message || "Kitapçık oluşturulamadı.");
+      const msg = err.response?.data?.error || err.message || "Kitapçık oluşturulamadı.";
+      const hint = typeof msg === "string" && (msg.includes("kota") || msg.includes("QuestionCount") || msg.includes("dolu"))
+        ? " Bölümdeki slot kotası (QuestionCount) dolu olabilir."
+        : "";
+      toast.error(msg + hint);
     } finally {
       setCreateBookletSubmitting(false);
     }
@@ -234,9 +319,25 @@ const Booklets = () => {
       </div>
 
       <div className="admin-card p-4 mb-6 rounded-xl border border-slate-200 shadow-sm">
-        <p className="text-sm text-slate-600">
-          Kitapçıklar artık <strong>bölüm (CategorySection)</strong> bazlıdır; sınav–kitapçık ilişkisi kaldırıldı. Aşağıda tüm bölümler listelenir; her bölüm için &quot;Kitapçık oluştur&quot;, sonra oluşan kitapçığa &quot;Soru ekle&quot; ile soru ekleyebilirsiniz. Bu sayfada yalnızca bu oturumda oluşturduğunuz kitapçıklar listelenir.
+        <p className="text-sm text-slate-600 mb-3">
+          Kitapçıklar <strong>bölüm (CategorySection)</strong> bazlıdır. Bölümü açınca slotlar yüklenir; &quot;Bölüm için slotları oluştur&quot; ile kotaya göre eksik slotlar toplu oluşturulur.
         </p>
+        {uniqueFeatureIds.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-slate-600">Tüm bölümler için slotları oluştur (özellik):</span>
+            {uniqueFeatureIds.map((fid) => (
+              <button
+                key={fid}
+                type="button"
+                className="admin-btn admin-btn-secondary text-sm"
+                disabled={!!slotsCreatingFeatureId}
+                onClick={() => handleCreateSlotsForFeature(fid)}
+              >
+                {slotsCreatingFeatureId === fid ? "Oluşturuluyor…" : `Özellik ${fid.slice(0, 8)}…`}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -289,18 +390,43 @@ const Booklets = () => {
                     </span>
                   )}
                 </button>
-                <button
-                  type="button"
-                  className="admin-btn admin-btn-primary shrink-0"
-                  onClick={() => openCreateBookletModal(section)}
-                  title="Bu bölüm için kitapçık oluştur"
-                >
-                  <Plus size={18} />
-                  Kitapçık oluştur
-                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn-secondary shrink-0"
+                    title="Bu bölüm için eksik slotları toplu oluştur"
+                    disabled={!!slotsCreatingSectionId}
+                    onClick={() => handleCreateSlotsForSection(section)}
+                  >
+                    {slotsCreatingSectionId === section.id ? "…" : "Slotları oluştur"}
+                  </button>
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn-primary shrink-0"
+                    onClick={() => openCreateBookletModal(section)}
+                    title="Tek kitapçık slotu oluştur"
+                  >
+                    <Plus size={18} />
+                    Kitapçık oluştur
+                  </button>
+                </div>
               </div>
               {expandedSectionId === section.id && (
                 <div className="admin-booklet-section-body">
+                  {sectionLoadingId === section.id ? (
+                    <div className="py-8 text-center text-slate-500"><span className="admin-spinner inline-block mr-2" />Yükleniyor…</div>
+                  ) : (
+                  <>
+                  <div className="flex justify-end mb-2">
+                    <button
+                      type="button"
+                      className="admin-btn admin-btn-ghost text-sm"
+                      onClick={() => loadSectionSlots(section.id)}
+                      disabled={!!sectionLoadingId}
+                    >
+                      Slotları yenile
+                    </button>
+                  </div>
                   <div className="admin-table-wrapper">
                     <table className="admin-table admin-booklet-table-row-hover">
                       <thead>
@@ -317,7 +443,7 @@ const Booklets = () => {
                         {items.length === 0 ? (
                           <tr>
                             <td colSpan={6} className="text-center text-slate-500 py-6">
-                              Bu bölümde henüz kitapçık yok. &quot;Kitapçık oluştur&quot; ile ekleyin.
+                              Bu bölümde slot yok. &quot;Slotları oluştur&quot; veya &quot;Kitapçık oluştur&quot; ile ekleyin.
                             </td>
                           </tr>
                         ) : (
@@ -382,6 +508,8 @@ const Booklets = () => {
                       </tbody>
                     </table>
                   </div>
+                  </>
+                  )}
                 </div>
               )}
             </div>

@@ -28,7 +28,6 @@ import {
   deleteCategorySection,
 } from "@/services/adminCategorySectionService";
 import { getAllLessonMains } from "@/services/adminLessonMainService";
-import { getLessonSubsByLessonMainId } from "@/services/adminLessonSubService";
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from "@/constants";
 import { formatDate } from "@/utils/format";
 
@@ -72,31 +71,12 @@ const Categories = () => {
   const [sectionForm, setSectionForm] = useState({
     name: "",
     lessonId: "",
-    lessonSubId: "",
     orderIndex: 0,
     questionCount: 40,
-    durationMinutes: 40,
-    minQuestions: 35,
-    maxQuestions: 45,
-    targetQuestions: 40,
-    difficultyMix: "",
   });
   const [sectionEditId, setSectionEditId] = useState(null);
   const [sectionLoading, setSectionLoading] = useState(false);
   const [sectionSubmitting, setSectionSubmitting] = useState(false);
-  const [sectionLessonSubs, setSectionLessonSubs] = useState([]);
-
-  useEffect(() => {
-    if (!sectionForm.lessonId) {
-      setSectionLessonSubs([]);
-      return;
-    }
-    let cancelled = false;
-    getLessonSubsByLessonMainId(sectionForm.lessonId).then((data) => {
-      if (!cancelled) setSectionLessonSubs(Array.isArray(data) ? data : []);
-    }).catch(() => { if (!cancelled) setSectionLessonSubs([]); });
-    return () => { cancelled = true; };
-  }, [sectionForm.lessonId]);
 
   const loadCategories = async () => {
     setLoading(true);
@@ -305,14 +285,8 @@ const Categories = () => {
   const defaultSectionForm = () => ({
     name: "",
     lessonId: "",
-    lessonSubId: "",
     orderIndex: 0,
     questionCount: 40,
-    durationMinutes: 40,
-    minQuestions: 35,
-    maxQuestions: 45,
-    targetQuestions: 40,
-    difficultyMix: "",
   });
   const openSectionModal = async (sub) => {
     setSectionSub(sub);
@@ -357,18 +331,13 @@ const Categories = () => {
     setSectionSubmitting(true);
     try {
       await createCategorySection({
+        categoryFeatureId: sectionSub.categoryFeatureId ?? sectionSub.id,
         categorySubId: sectionSub.id,
         lessonId: sectionForm.lessonId,
         lessonMainId: sectionForm.lessonMainId ?? null,
-        lessonSubId: sectionForm.lessonSubId?.trim() || null,
         name: sectionForm.name.trim(),
         orderIndex: Number(sectionForm.orderIndex) ?? 0,
         questionCount: Number(sectionForm.questionCount) ?? 0,
-        durationMinutes: sectionForm.durationMinutes != null && sectionForm.durationMinutes !== "" ? Number(sectionForm.durationMinutes) : null,
-        minQuestions: Number(sectionForm.minQuestions) ?? 35,
-        maxQuestions: Number(sectionForm.maxQuestions) ?? 45,
-        targetQuestions: sectionForm.targetQuestions != null && sectionForm.targetQuestions !== "" ? Number(sectionForm.targetQuestions) : null,
-        difficultyMix: sectionForm.difficultyMix?.trim() || null,
       });
       toast.success("Bölüm şablonu eklendi.");
       setSectionForm(defaultSectionForm());
@@ -386,15 +355,9 @@ const Categories = () => {
     try {
       await updateCategorySection(sectionEditId, {
         lessonId: sectionForm.lessonId || undefined,
-        lessonSubId: sectionForm.lessonSubId?.trim() || undefined,
         name: sectionForm.name?.trim() || undefined,
         orderIndex: Number(sectionForm.orderIndex),
         questionCount: Number(sectionForm.questionCount),
-        durationMinutes: sectionForm.durationMinutes != null && sectionForm.durationMinutes !== "" ? Number(sectionForm.durationMinutes) : undefined,
-        minQuestions: sectionForm.minQuestions != null ? Number(sectionForm.minQuestions) : undefined,
-        maxQuestions: sectionForm.maxQuestions != null ? Number(sectionForm.maxQuestions) : undefined,
-        targetQuestions: sectionForm.targetQuestions != null && sectionForm.targetQuestions !== "" ? Number(sectionForm.targetQuestions) : undefined,
-        difficultyMix: sectionForm.difficultyMix?.trim() || undefined,
       });
       toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
       setSectionEditId(null);
@@ -411,14 +374,8 @@ const Categories = () => {
     setSectionForm({
       name: sec.name || "",
       lessonId: sec.lessonId || "",
-      lessonSubId: sec.lessonSubId ?? "",
       orderIndex: sec.orderIndex ?? 0,
       questionCount: sec.questionCount ?? 40,
-      durationMinutes: sec.durationMinutes ?? 40,
-      minQuestions: sec.minQuestions ?? 35,
-      maxQuestions: sec.maxQuestions ?? 45,
-      targetQuestions: sec.targetQuestions ?? 40,
-      difficultyMix: sec.difficultyMix ?? "",
     });
   };
   const handleSectionDelete = async (sectionId) => {
@@ -1135,39 +1092,6 @@ const Categories = () => {
                         <label className="admin-label">Soru sayısı</label>
                         <input type="number" className="admin-input" min={0} value={sectionForm.questionCount} onChange={(e) => setSectionForm((f) => ({ ...f, questionCount: e.target.value }))} />
                       </div>
-                      <div>
-                        <label className="admin-label">Süre (dk)</label>
-                        <input type="number" className="admin-input" min={0} value={sectionForm.durationMinutes} onChange={(e) => setSectionForm((f) => ({ ...f, durationMinutes: e.target.value }))} placeholder="40" />
-                      </div>
-                      <div>
-                        <label className="admin-label">Min soru</label>
-                        <input type="number" className="admin-input" min={0} value={sectionForm.minQuestions} onChange={(e) => setSectionForm((f) => ({ ...f, minQuestions: e.target.value }))} />
-                      </div>
-                      <div>
-                        <label className="admin-label">Max soru</label>
-                        <input type="number" className="admin-input" min={0} value={sectionForm.maxQuestions} onChange={(e) => setSectionForm((f) => ({ ...f, maxQuestions: e.target.value }))} />
-                      </div>
-                      <div>
-                        <label className="admin-label">Hedef soru</label>
-                        <input type="number" className="admin-input" min={0} value={sectionForm.targetQuestions} onChange={(e) => setSectionForm((f) => ({ ...f, targetQuestions: e.target.value }))} />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="admin-label">Alt konu (opsiyonel)</label>
-                        {sectionForm.lessonId ? (
-                          <select className="admin-input" value={sectionForm.lessonSubId} onChange={(e) => setSectionForm((f) => ({ ...f, lessonSubId: e.target.value }))}>
-                            <option value="">Seçin</option>
-                            {sectionLessonSubs.map((ls) => (
-                              <option key={ls.id} value={ls.id}>{ls.name} ({ls.code})</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input type="text" className="admin-input font-mono text-sm" value={sectionForm.lessonSubId} onChange={(e) => setSectionForm((f) => ({ ...f, lessonSubId: e.target.value }))} placeholder="Önce ders seçin" readOnly />
-                        )}
-                      </div>
-                      <div className="col-span-2">
-                        <label className="admin-label">Zorluk dağılımı (opsiyonel, JSON)</label>
-                        <input type="text" className="admin-input font-mono text-sm" value={sectionForm.difficultyMix} onChange={(e) => setSectionForm((f) => ({ ...f, difficultyMix: e.target.value }))} placeholder='{"easy":10,"medium":20,"hard":10}' />
-                      </div>
                     </div>
                     <div className="flex gap-2">
                       <button type="submit" disabled={sectionSubmitting} className="admin-btn admin-btn-primary">{sectionEditId ? "Güncelle" : "Ekle"}</button>
@@ -1185,8 +1109,7 @@ const Categories = () => {
                             <div>
                               <span className="font-medium">{sec.name}</span>
                               <span className="text-slate-500 text-sm ml-2">
-                                {lessons.find((l) => String(l.id) === String(sec.lessonId))?.name ?? sec.lessonId} — {sec.questionCount} soru
-                                {sec.durationMinutes != null ? `, ${sec.durationMinutes} dk` : ""} — sıra {sec.orderIndex}
+                                {lessons.find((l) => String(l.id) === String(sec.lessonId))?.name ?? sec.lessonId} — {sec.questionCount} soru — sıra {sec.orderIndex}
                               </span>
                             </div>
                             <div className="flex gap-1">
