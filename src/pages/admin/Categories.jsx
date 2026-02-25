@@ -505,24 +505,29 @@ const Categories = () => {
 
   return (
     <div className="admin-page-wrapper">
-      <div className="admin-page-header">
-        <h1 className="admin-page-title">
-          <FolderTree size={28} className="text-emerald-600" />
-          Kategoriler
-        </h1>
-        <button type="button" onClick={openCreate} className="admin-btn admin-btn-primary">
+      <div className="admin-page-header admin-page-header-gradient flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="admin-page-title">
+            <FolderTree size={28} className="text-emerald-600 shrink-0" />
+            Kategoriler
+          </h1>
+          <p className="text-sm text-slate-500">Kategori, alt kategori ve bölüm şablonlarını yönetin.</p>
+        </div>
+        <button type="button" onClick={openCreate} className="admin-btn admin-btn-primary shrink-0 w-full sm:w-auto">
           <Plus size={18} />
           Yeni Kategori
         </button>
       </div>
 
       {loading ? (
-        <div className="admin-loading-center">
+        <div className="admin-loading-center py-12">
           <span className="admin-spinner" />
         </div>
       ) : list.length === 0 ? (
-        <div className="admin-empty-state">
-          Henüz kategori yok. &quot;Yeni Kategori&quot; ile ekleyebilirsiniz.
+        <div className="admin-empty-state rounded-xl py-12">
+          <FolderTree size={48} className="mx-auto mb-3 text-slate-300" />
+          <p className="font-medium text-slate-600">Henüz kategori yok.</p>
+          <p className="text-sm mt-1 text-slate-500">&quot;Yeni Kategori&quot; ile ekleyebilirsiniz.</p>
         </div>
       ) : (
         <div className="admin-card admin-card-elevated">

@@ -704,22 +704,27 @@ const Exams = () => {
 
   return (
     <div className="admin-page-wrapper">
-      <div className="admin-page-header">
-        <h1 className="admin-page-title">
-          <FileCheck size={28} className="text-emerald-600" />
-          Sınavlar
-        </h1>
-        <button type="button" onClick={openCreate} className="admin-btn admin-btn-primary">
+      <div className="admin-page-header admin-page-header-gradient flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="admin-page-title">
+            <FileCheck size={28} className="text-emerald-600 shrink-0" />
+            Sınavlar
+          </h1>
+          <p className="text-sm text-slate-500">
+            Taslak, planlanan ve yayındaki sınavları yönetin.
+          </p>
+        </div>
+        <button type="button" onClick={openCreate} className="admin-btn admin-btn-primary shrink-0 w-full sm:w-auto">
           <Plus size={18} />
           Yeni Sınav
         </button>
       </div>
 
-      <div className="admin-card p-4 mb-4">
+      <div className="admin-card p-4 sm:p-5 mb-6 rounded-xl border border-slate-200 shadow-sm">
         <div className="flex flex-wrap items-center gap-3">
-          <label className="admin-label mb-0">Durum</label>
+          <label className="admin-label mb-0 font-semibold text-slate-700">Durum filtresi</label>
           <select
-            className="admin-input w-auto min-w-[140px]"
+            className="admin-input w-full sm:w-auto min-w-0 sm:min-w-[160px] max-w-[200px] rounded-lg border-slate-200 focus:border-emerald-500"
             value={statusFilter ?? ""}
             onChange={(e) =>
               setStatusFilter(e.target.value === "" ? null : Number(e.target.value))
@@ -736,26 +741,30 @@ const Exams = () => {
       </div>
 
       {loading ? (
-        <div className="admin-loading-center">
+        <div className="admin-loading-center py-12">
           <span className="admin-spinner" />
         </div>
       ) : list.length === 0 ? (
-        <div className="admin-empty-state">
-          Henüz sınav yok. &quot;Yeni Sınav&quot; ile ekleyebilirsiniz.
+        <div className="admin-empty-state rounded-xl py-12">
+          <FileCheck size={48} className="mx-auto mb-3 text-slate-300" />
+          <p className="font-medium text-slate-600">Henüz sınav yok.</p>
+          <p className="text-sm mt-1 text-slate-500">
+            &quot;Yeni Sınav&quot; ile ilk sınavınızı oluşturun.
+          </p>
         </div>
       ) : (
-        <div className="admin-card admin-card-elevated">
-          <div className="admin-table-wrapper">
-            <table className="admin-table">
+        <div className="admin-card admin-card-elevated rounded-xl overflow-hidden">
+          <div className="admin-table-wrapper overflow-x-auto -webkit-overflow-scrolling-touch">
+            <table className="admin-table min-w-[640px] sm:min-w-0">
               <thead>
                 <tr>
-                  <th>Başlık</th>
-                  <th>Kategori</th>
-                  <th>Durum</th>
-                  <th>Süre</th>
-                  <th>Başlangıç</th>
-                  <th>Soru</th>
-                  <th className="text-right">İşlem</th>
+                  <th className="admin-table-header-gradient">Başlık</th>
+                  <th className="admin-table-header-gradient">Kategori</th>
+                  <th className="admin-table-header-gradient">Durum</th>
+                  <th className="admin-table-header-gradient">Süre</th>
+                  <th className="admin-table-header-gradient">Başlangıç</th>
+                  <th className="admin-table-header-gradient">Soru</th>
+                  <th className="admin-table-header-gradient text-right">İşlem</th>
                 </tr>
               </thead>
               <tbody>
