@@ -378,4 +378,52 @@
       max-height: 280px;
     }
   }
+
+  /* Kitapçıklar sayfası — liste, slotlar, soru ekleme/düzenleme */
+  .booklets-page {
+    min-height: 100%;
+  }
+  .booklets-layout {
+    min-height: 0;
+  }
+  .booklets-sidebar .admin-card {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 12rem);
+  }
+  .booklets-list-body {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(203 213 225) transparent;
+  }
+  .booklets-list-body::-webkit-scrollbar {
+    width: 6px;
+  }
+  .booklets-list-body::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .booklets-list-body::-webkit-scrollbar-thumb {
+    background: rgb(203 213 225);
+    border-radius: 3px;
+  }
+  .booklets-list-item {
+    border-left: 4px solid transparent;
+  }
+  .booklets-list-item:focus-visible {
+    outline: 2px solid rgb(16 185 129);
+    outline-offset: -2px;
+  }
+  .booklets-detail-card .booklets-detail-header {
+    flex-wrap: wrap;
+  }
+  .booklets-section-header {
+    flex-wrap: wrap;
+  }
+  .booklets-section .admin-table tbody tr {
+    transition: background-color 0.15s ease;
+  }
+  @media (max-width: 1023px) {
+    .booklets-sidebar .booklets-list-body {
+      max-height: 280px;
+    }
+  }
 }
