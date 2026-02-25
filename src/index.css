@@ -327,4 +327,55 @@
     background: rgb(226 232 240);
     margin: 1rem 0;
   }
+
+  /* Dersler sayfası — hiyerarşik liste ve detay */
+  .lessons-page {
+    min-height: 100%;
+  }
+  .lessons-layout {
+    min-height: 0;
+  }
+  .lessons-sidebar .admin-card {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 12rem);
+  }
+  .lessons-list-body {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(203 213 225) transparent;
+  }
+  .lessons-list-body::-webkit-scrollbar {
+    width: 6px;
+  }
+  .lessons-list-body::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .lessons-list-body::-webkit-scrollbar-thumb {
+    background: rgb(203 213 225);
+    border-radius: 3px;
+  }
+  .lessons-list-item {
+    border-left: 4px solid transparent;
+  }
+  .lessons-list-item:focus-visible {
+    outline: 2px solid rgb(16 185 129);
+    outline-offset: -2px;
+  }
+  .lessons-detail-card .lessons-detail-header {
+    flex-wrap: wrap;
+  }
+  .lessons-section-header {
+    flex-wrap: wrap;
+  }
+  .lessons-section .admin-table tbody tr {
+    transition: background-color 0.15s ease;
+  }
+  .lessons-section .admin-table tbody tr:focus-within {
+    background: rgb(236 253 245 / 0.5);
+  }
+  @media (max-width: 1023px) {
+    .lessons-sidebar .lessons-list-body {
+      max-height: 280px;
+    }
+  }
 }
