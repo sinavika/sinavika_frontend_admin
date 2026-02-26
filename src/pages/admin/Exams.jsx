@@ -2,16 +2,10 @@ import { useEffect, useState, useCallback } from "react";
 import {
   FileCheck,
   Plus,
-  Pencil,
-  Trash2,
   Filter,
   RefreshCw,
   X,
-  Lock,
-  Calendar,
   Send,
-  Eye,
-  EyeOff,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -19,16 +13,10 @@ import {
   getExamsByStatus,
   getExamById,
   createExam,
-  updateExam,
-  deleteExam,
-  publishExam,
-  unpublishExam,
-  lockExam,
-  scheduleExam,
   setExamStatus,
 } from "@/services/adminExamService";
 import { getBookletList } from "@/services/adminQuestionBookletService";
-import { ERROR_MESSAGES, SUCCESS_MESSAGES } from "@/constants";
+import { ERROR_MESSAGES } from "@/constants";
 
 const getApiError = (err) =>
   err.response?.data?.error ||
@@ -38,12 +26,12 @@ const getApiError = (err) =>
 
 const EXAM_STATUS_LABELS = {
   0: "Taslak",
-  1: "Planlandı",
+  1: "Zamanlanmış",
   2: "Yayında",
   3: "Devam ediyor",
   4: "Kapalı",
-  5: "Bitti",
-  6: "Arşiv",
+  5: "Sona erdi",
+  6: "Arşivlendi",
 };
 
 const formatDateTime = (v) => {
@@ -153,107 +141,6 @@ const Exams = () => {
     }
   };
 
-  const openEditExam = (exam) => {
-    setForm({
-      id: exam.id,
-      title: exam.title ?? "",
-      description: exam.description ?? "",
-      instructions: exam.instructions ?? "",
-      startsAt: exam.startsAt ? exam.startsAt.slice(0, 16) : "",
-      endsAt: exam.endsAt ? exam.endsAt.slice(0, 16) : "",
-      accessDurationDays: exam.accessDurationDays ?? 7,
-      participationQuota: exam.participationQuota ?? "",
-      isAdaptive: exam.isAdaptive === true,
-      status: exam.status,
-    });
-    setModal("edit-exam");
-  };
-
-  const handleUpdateExam = async (e) => {
-    e.preventDefault();
-    if (!form.id) return;
-    setSubmitting(true);
-    try {
-      await updateExam(form.id, {
-        title: form.title?.trim(),
-        description: form.description?.trim() || undefined,
-        instructions: form.instructions?.trim() || undefined,
-        startsAt: form.startsAt || undefined,
-        endsAt: form.endsAt || undefined,
-        accessDurationDays: form.accessDurationDays != null ? Number(form.accessDurationDays) : undefined,
-        participationQuota: form.participationQuota !== "" ? Number(form.participationQuota) : undefined,
-        isAdaptive: form.isAdaptive,
-        status: form.status != null ? Number(form.status) : undefined,
-      });
-      toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
-      setModal(null);
-      loadExams();
-      if (selectedExam?.id === form.id) {
-        const updated = await getExamById(form.id).catch(() => null);
-        if (updated) setSelectedExam(updated);
-      }
-    } catch (err) {
-      toast.error(getApiError(err));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const openDeleteExam = (exam) => {
-    setForm({ id: exam.id, title: exam.title });
-    setModal("delete-exam");
-  };
-
-  const handleDeleteExam = async () => {
-    if (!form.id) return;
-    setSubmitting(true);
-    try {
-      await deleteExam(form.id);
-      toast.success("Sınav silindi.");
-      setModal(null);
-      loadExams();
-      if (selectedExam?.id === form.id) setSelectedExam(null);
-    } catch (err) {
-      toast.error(getApiError(err));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const openScheduleExam = (exam) => {
-    setForm({
-      id: exam.id,
-      startsAt: exam.startsAt ? exam.startsAt.slice(0, 16) : "",
-      endsAt: exam.endsAt ? exam.endsAt.slice(0, 16) : "",
-      status: exam.status ?? 1,
-    });
-    setModal("schedule-exam");
-  };
-
-  const handleScheduleExam = async (e) => {
-    e.preventDefault();
-    if (!form.id) return;
-    setSubmitting(true);
-    try {
-      await scheduleExam(form.id, {
-        startsAt: form.startsAt || undefined,
-        endsAt: form.endsAt || undefined,
-        status: Number(form.status),
-      });
-      toast.success("Sınav tarihleri güncellendi.");
-      setModal(null);
-      loadExams();
-      if (selectedExam?.id === form.id) {
-        const updated = await getExamById(form.id).catch(() => null);
-        if (updated) setSelectedExam(updated);
-      }
-    } catch (err) {
-      toast.error(getApiError(err));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const openSetStatus = (exam) => {
     setForm({ id: exam.id, status: exam.status ?? 0 });
     setModal("set-status");
@@ -265,62 +152,11 @@ const Exams = () => {
     setSubmitting(true);
     try {
       await setExamStatus(form.id, Number(form.status));
-      toast.success("Durum güncellendi.");
+      toast.success("Sınav durumu güncellendi.");
       setModal(null);
       loadExams();
       if (selectedExam?.id === form.id) {
         const updated = await getExamById(form.id).catch(() => null);
-        if (updated) setSelectedExam(updated);
-      }
-    } catch (err) {
-      toast.error(getApiError(err));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handlePublish = async (id) => {
-    setSubmitting(true);
-    try {
-      await publishExam(id);
-      toast.success("Sınav yayınlandı.");
-      loadExams();
-      if (selectedExam?.id === id) {
-        const updated = await getExamById(id).catch(() => null);
-        if (updated) setSelectedExam(updated);
-      }
-    } catch (err) {
-      toast.error(getApiError(err));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleUnpublish = async (id) => {
-    setSubmitting(true);
-    try {
-      await unpublishExam(id);
-      toast.success("Sınav yayından kaldırıldı.");
-      loadExams();
-      if (selectedExam?.id === id) {
-        const updated = await getExamById(id).catch(() => null);
-        if (updated) setSelectedExam(updated);
-      }
-    } catch (err) {
-      toast.error(getApiError(err));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleLock = async (id) => {
-    setSubmitting(true);
-    try {
-      await lockExam(id);
-      toast.success("Sınav kilitlendi.");
-      loadExams();
-      if (selectedExam?.id === id) {
-        const updated = await getExamById(id).catch(() => null);
         if (updated) setSelectedExam(updated);
       }
     } catch (err) {
@@ -347,7 +183,7 @@ const Exams = () => {
           </button>
         </div>
         <p className="text-sm text-slate-600 mt-1">
-          Sınavlar tek kitapçık kodu (BookletCode) ile oluşturulur; kategori ve yayınevi kitapçıktan alınır.
+          Sınavlar tek kitapçık kodu (BookletCode) ile oluşturulur; kategori ve yayınevi kitapçıktan alınır. Raporda tanımlı endpoint’ler: listele, duruma göre listele, detay, oluştur, durum güncelle.
         </p>
       </div>
 
@@ -389,8 +225,7 @@ const Exams = () => {
                   <th>Durum</th>
                   <th>Başlangıç</th>
                   <th>Bitiş</th>
-                  <th>Kilit</th>
-                  <th className="w-48">İşlem</th>
+                  <th className="w-28">İşlem</th>
                 </tr>
               </thead>
               <tbody>
@@ -416,17 +251,8 @@ const Exams = () => {
                     </td>
                     <td className="text-sm text-slate-600">{formatDateTime(exam.startsAt)}</td>
                     <td className="text-sm text-slate-600">{formatDateTime(exam.endsAt)}</td>
-                    <td>{exam.isLocked ? <Lock size={16} className="text-amber-600" title="Kilitli" /> : "—"}</td>
                     <td>
-                      <div className="flex flex-wrap items-center gap-1">
-                        <button type="button" className="admin-btn admin-btn-ghost admin-btn-icon" onClick={() => openEditExam(exam)} title="Düzenle"><Pencil size={14} /></button>
-                        <button type="button" className="admin-btn admin-btn-ghost admin-btn-icon" onClick={() => handlePublish(exam.id)} disabled={submitting} title="Yayınla"><Eye size={14} /></button>
-                        <button type="button" className="admin-btn admin-btn-ghost admin-btn-icon" onClick={() => handleUnpublish(exam.id)} disabled={submitting} title="Yayından kaldır"><EyeOff size={14} /></button>
-                        <button type="button" className="admin-btn admin-btn-ghost admin-btn-icon" onClick={() => handleLock(exam.id)} disabled={submitting} title="Kilitle"><Lock size={14} /></button>
-                        <button type="button" className="admin-btn admin-btn-ghost admin-btn-icon" onClick={() => openScheduleExam(exam)} title="Tarih planla"><Calendar size={14} /></button>
-                        <button type="button" className="admin-btn admin-btn-ghost admin-btn-icon" onClick={() => openSetStatus(exam)} title="Durum"><Send size={14} /></button>
-                        <button type="button" className="admin-btn admin-btn-ghost admin-btn-icon text-red-600 hover:bg-red-50" onClick={() => openDeleteExam(exam)} title="Sil"><Trash2 size={14} /></button>
-                      </div>
+                      <button type="button" className="admin-btn admin-btn-ghost admin-btn-icon" onClick={() => openSetStatus(exam)} title="Durum değiştir"><Send size={14} /></button>
                     </td>
                   </tr>
                 ))}
@@ -438,19 +264,14 @@ const Exams = () => {
 
       {selectedExam && (
         <div className="admin-card rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 bg-gradient-to-r from-emerald-50 to-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-bold text-slate-800">{selectedExam.title}</h2>
-              <p className="text-sm text-slate-500">
-                Kitapçık: <code className="bg-slate-100 px-1 rounded">{selectedExam.bookletCode ?? selectedExam.questionBookletId ?? "—"}</code>
-                {selectedExam.questionBookletId && (
-                  <span className="ml-2">(ID: {String(selectedExam.questionBookletId).slice(0, 8)}…)</span>
-                )}
-              </p>
-            </div>
-            <button type="button" className="admin-btn admin-btn-secondary" onClick={() => openEditExam(selectedExam)}>
-              <Pencil size={16} /> Düzenle
-            </button>
+          <div className="px-5 py-4 bg-gradient-to-r from-emerald-50 to-white border-b border-slate-200">
+            <h2 className="text-lg font-bold text-slate-800">{selectedExam.title}</h2>
+            <p className="text-sm text-slate-500">
+              Kitapçık: <code className="bg-slate-100 px-1 rounded">{selectedExam.bookletCode ?? selectedExam.questionBookletId ?? "—"}</code>
+              {selectedExam.questionBookletId && (
+                <span className="ml-2">(ID: {String(selectedExam.questionBookletId).slice(0, 8)}…)</span>
+              )}
+            </p>
           </div>
           <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
             <div><span className="text-slate-500">Durum</span><br />{EXAM_STATUS_LABELS[selectedExam.status] ?? selectedExam.status}</div>
@@ -463,10 +284,14 @@ const Exams = () => {
               <div className="sm:col-span-2"><span className="text-slate-500">Açıklama</span><br />{selectedExam.description}</div>
             )}
           </div>
+          <div className="px-5 pb-4">
+            <button type="button" className="admin-btn admin-btn-secondary flex items-center gap-2" onClick={() => openSetStatus(selectedExam)}>
+              <Send size={16} /> Durum değiştir
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Create exam modal */}
       {modal === "create-exam" && (
         <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
           <div className="admin-modal admin-modal-xl" onClick={(e) => e.stopPropagation()}>
@@ -512,8 +337,8 @@ const Exams = () => {
                     <input type="datetime-local" className="admin-input" value={form.endsAt ?? ""} onChange={(e) => setForm((f) => ({ ...f, endsAt: e.target.value }))} />
                   </div>
                   <div className="admin-form-group">
-                    <label className="admin-label">Erişim süresi (gün)</label>
-                    <input type="number" min={0} className="admin-input" value={form.accessDurationDays ?? 7} onChange={(e) => setForm((f) => ({ ...f, accessDurationDays: e.target.value }))} />
+                    <label className="admin-label admin-label-required">Erişim süresi (gün)</label>
+                    <input type="number" min={0} className="admin-input" value={form.accessDurationDays ?? 7} onChange={(e) => setForm((f) => ({ ...f, accessDurationDays: e.target.value }))} required />
                   </div>
                 </div>
                 <div className="admin-form-row admin-form-row-2">
@@ -536,123 +361,6 @@ const Exams = () => {
         </div>
       )}
 
-      {/* Edit exam modal */}
-      {modal === "edit-exam" && (
-        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
-          <div className="admin-modal admin-modal-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="admin-modal-header flex items-center justify-between">
-              <span>Sınavı düzenle</span>
-              <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => !submitting && setModal(null)}><X size={18} /></button>
-            </div>
-            <form onSubmit={handleUpdateExam}>
-              <div className="admin-modal-body space-y-4">
-                <div className="admin-form-group">
-                  <label className="admin-label admin-label-required">Başlık</label>
-                  <input type="text" className="admin-input" value={form.title ?? ""} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} required />
-                </div>
-                <div className="admin-form-group">
-                  <label className="admin-label">Açıklama</label>
-                  <textarea className="admin-input min-h-[80px]" value={form.description ?? ""} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
-                </div>
-                <div className="admin-form-group">
-                  <label className="admin-label">Talimatlar</label>
-                  <textarea className="admin-input min-h-[80px]" value={form.instructions ?? ""} onChange={(e) => setForm((f) => ({ ...f, instructions: e.target.value }))} />
-                </div>
-                <div className="admin-form-row admin-form-row-3">
-                  <div className="admin-form-group">
-                    <label className="admin-label">Başlangıç</label>
-                    <input type="datetime-local" className="admin-input" value={form.startsAt ?? ""} onChange={(e) => setForm((f) => ({ ...f, startsAt: e.target.value }))} />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label">Bitiş</label>
-                    <input type="datetime-local" className="admin-input" value={form.endsAt ?? ""} onChange={(e) => setForm((f) => ({ ...f, endsAt: e.target.value }))} />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label">Durum</label>
-                    <select className="admin-input" value={form.status ?? 0} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
-                      {Object.entries(EXAM_STATUS_LABELS).map(([val, label]) => (
-                        <option key={val} value={val}>{label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div className="admin-form-row admin-form-row-2">
-                  <div className="admin-form-group">
-                    <label className="admin-label">Erişim süresi (gün)</label>
-                    <input type="number" min={0} className="admin-input" value={form.accessDurationDays ?? 7} onChange={(e) => setForm((f) => ({ ...f, accessDurationDays: e.target.value }))} />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label">Katılım kotası</label>
-                    <input type="number" min={0} className="admin-input" value={form.participationQuota ?? ""} onChange={(e) => setForm((f) => ({ ...f, participationQuota: e.target.value }))} />
-                  </div>
-                </div>
-                <div className="admin-form-group flex items-center gap-2">
-                  <input type="checkbox" checked={form.isAdaptive === true} onChange={(e) => setForm((f) => ({ ...f, isAdaptive: e.target.checked }))} className="rounded border-slate-300 text-emerald-600" />
-                  <label className="admin-label mb-0">Uyarlanabilir</label>
-                </div>
-              </div>
-              <div className="admin-modal-footer">
-                <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
-                <button type="submit" className="admin-btn admin-btn-primary" disabled={submitting}>{submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Kaydet"}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete exam modal */}
-      {modal === "delete-exam" && (
-        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
-          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="admin-modal-header">Sınavı sil</div>
-            <div className="admin-modal-body">
-              <p className="text-slate-600"><strong>{form.title}</strong> sınavı silinecek. Onaylıyor musunuz?</p>
-            </div>
-            <div className="admin-modal-footer">
-              <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
-              <button type="button" className="admin-btn admin-btn-danger" onClick={handleDeleteExam} disabled={submitting}>{submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Sil"}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Schedule exam modal */}
-      {modal === "schedule-exam" && (
-        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
-          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="admin-modal-header flex items-center justify-between">
-              <span>Sınav tarihlerini planla</span>
-              <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => !submitting && setModal(null)}><X size={18} /></button>
-            </div>
-            <form onSubmit={handleScheduleExam}>
-              <div className="admin-modal-body space-y-4">
-                <div className="admin-form-group">
-                  <label className="admin-label">Başlangıç</label>
-                  <input type="datetime-local" className="admin-input" value={form.startsAt ?? ""} onChange={(e) => setForm((f) => ({ ...f, startsAt: e.target.value }))} />
-                </div>
-                <div className="admin-form-group">
-                  <label className="admin-label">Bitiş</label>
-                  <input type="datetime-local" className="admin-input" value={form.endsAt ?? ""} onChange={(e) => setForm((f) => ({ ...f, endsAt: e.target.value }))} />
-                </div>
-                <div className="admin-form-group">
-                  <label className="admin-label">Durum</label>
-                  <select className="admin-input" value={form.status ?? 1} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
-                    {Object.entries(EXAM_STATUS_LABELS).map(([val, label]) => (
-                      <option key={val} value={val}>{label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="admin-modal-footer">
-                <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
-                <button type="submit" className="admin-btn admin-btn-primary" disabled={submitting}>{submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Kaydet"}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Set status modal */}
       {modal === "set-status" && (
         <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
           <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
@@ -663,7 +371,7 @@ const Exams = () => {
             <form onSubmit={handleSetStatus}>
               <div className="admin-modal-body">
                 <div className="admin-form-group">
-                  <label className="admin-label">Durum</label>
+                  <label className="admin-label">Durum (ExamStatus 0–6)</label>
                   <select className="admin-input" value={form.status ?? 0} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
                     {Object.entries(EXAM_STATUS_LABELS).map(([val, label]) => (
                       <option key={val} value={val}>{label}</option>

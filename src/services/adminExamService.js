@@ -1,8 +1,8 @@
 import adminApi from "@/api/adminApi";
 
 /**
- * AdminExamController — Raporda: api/AdminExam
- * Status: 0=Draft, 1=Scheduled, 2=Published, 3=InProgress, 4=Closed, 5=Ended, 6=Archived
+ * AdminExamController — Rapor: docs/API-ADMIN-EXAM-CONTROLLER-RAPORU.md
+ * Sadece raporda tanımlı endpoint'ler. ExamStatus: 0=Draft, 1=Scheduled, 2=Published, 3=InProgress, 4=Closed, 5=Ended, 6=Archived
  */
 
 /**
@@ -14,7 +14,8 @@ export const getAllExams = async () => {
 };
 
 /**
- * Duruma göre sınavlar. GET /AdminExam/by-status/{status}
+ * Duruma göre sınavları listele. GET /AdminExam/by-status/{status}
+ * @param {number} status — 0–6 arası ExamStatus
  */
 export const getExamsByStatus = async (status) => {
   const response = await adminApi.get(`/AdminExam/by-status/${status}`);
@@ -31,102 +32,30 @@ export const getExamById = async (id) => {
 
 /**
  * Sınav oluştur. POST /AdminExam/create
- * AdminExamCreateDto: title, description?, instructions?, bookletCode (zorunlu), startsAt?, endsAt?, accessDurationDays?, participationQuota?, isAdaptive?
- * Kategori ve yayınevi kitapçıktan alınır. Yanıt: { message, examId, bookletCode }
+ * AdminExamCreateDto: title (zorunlu), description?, instructions?, bookletCode (zorunlu), startsAt?, endsAt?, accessDurationDays (zorunlu), participationQuota?, isAdaptive (zorunlu)
+ * Yanıt: { message, examId, bookletCode }
  */
 export const createExam = async (data) => {
   const body = {
     title: data.title?.trim() ?? "",
     bookletCode: data.bookletCode?.trim() ?? "",
+    accessDurationDays: Number(data.accessDurationDays) ?? 0,
+    isAdaptive: Boolean(data.isAdaptive),
   };
   if (data.description != null) body.description = data.description;
   if (data.instructions != null) body.instructions = data.instructions;
   if (data.startsAt != null) body.startsAt = data.startsAt;
   if (data.endsAt != null) body.endsAt = data.endsAt;
-  if (data.accessDurationDays != null) body.accessDurationDays = Number(data.accessDurationDays);
   if (data.participationQuota != null) body.participationQuota = Number(data.participationQuota);
-  if (data.isAdaptive != null) body.isAdaptive = Boolean(data.isAdaptive);
   const response = await adminApi.post("/AdminExam/create", body);
   return response.data;
 };
 
 /**
- * Sınav güncelle. PUT /AdminExam/update?id={id}
- * AdminExamUpdateDto: publisherId, categoryId, categorySubId kaldırıldı (kitapçıktan gelir). title, description?, instructions?, startsAt?, endsAt?, status? vb.
- */
-export const updateExam = async (id, data) => {
-  const body = {};
-  if (data.title != null) body.title = data.title;
-  if (data.description != null) body.description = data.description;
-  if (data.instructions != null) body.instructions = data.instructions;
-  if (data.startsAt != null) body.startsAt = data.startsAt;
-  if (data.endsAt != null) body.endsAt = data.endsAt;
-  if (data.status != null) body.status = data.status;
-  if (data.accessDurationDays != null) body.accessDurationDays = data.accessDurationDays;
-  if (data.participationQuota != null) body.participationQuota = data.participationQuota;
-  if (data.isAdaptive != null) body.isAdaptive = data.isAdaptive;
-  const response = await adminApi.put("/AdminExam/update", body, {
-    params: { id },
-  });
-  return response.data;
-};
-
-/**
- * Sınav sil. DELETE /AdminExam/delete?id={id}
- */
-export const deleteExam = async (id) => {
-  const response = await adminApi.delete("/AdminExam/delete", {
-    params: { id },
-  });
-  return response.data;
-};
-
-/**
- * Sınavı yayınla. POST /AdminExam/publish?id={id}
- */
-export const publishExam = async (id) => {
-  const response = await adminApi.post("/AdminExam/publish", null, {
-    params: { id },
-  });
-  return response.data;
-};
-
-/**
- * Sınavı yayından kaldır. POST /AdminExam/unpublish?id={id}
- */
-export const unpublishExam = async (id) => {
-  const response = await adminApi.post("/AdminExam/unpublish", null, {
-    params: { id },
-  });
-  return response.data;
-};
-
-/**
- * Sınavı kilitle. POST /AdminExam/lock?id={id}
- */
-export const lockExam = async (id) => {
-  const response = await adminApi.post("/AdminExam/lock", null, {
-    params: { id },
-  });
-  return response.data;
-};
-
-/**
- * Sınav tarihlerini güncelle. PUT /AdminExam/schedule?id={id}
- * Body: startsAt, endsAt, status
- */
-export const scheduleExam = async (id, data) => {
-  const response = await adminApi.put("/AdminExam/schedule", data, {
-    params: { id },
-  });
-  return response.data;
-};
-
-/**
- * Sınav durumunu değiştir. PUT /AdminExam/status/{id}
- * Body: { status: number } — 0=Draft, 1=Scheduled, 2=Published, 3=InProgress, 4=Closed, 5=Ended, 6=Archived
+ * Sınav durumunu güncelle. PUT /AdminExam/status/{id}
+ * Body: SetExamStatusRequest { status: number } — 0–6
  */
 export const setExamStatus = async (id, status) => {
-  const response = await adminApi.put(`/AdminExam/status/${id}`, { status });
+  const response = await adminApi.put(`/AdminExam/status/${id}`, { status: Number(status) });
   return response.data;
 };
