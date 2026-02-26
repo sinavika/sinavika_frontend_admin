@@ -43,6 +43,14 @@ const getApiError = (err) =>
 
 const OPTION_KEYS = ["A", "B", "C", "D", "E"];
 
+const BOOKLET_STATUS_LABELS = {
+  0: "Taslak",
+  1: "Hazırlanıyor",
+  2: "Hazırlandı",
+  3: "Tamamlandı",
+  4: "SınavAşamasında",
+};
+
 const defaultQuestionForm = () => ({
   stem: "",
   options: OPTION_KEYS.slice(0, 4).map((key, i) => ({
@@ -52,7 +60,6 @@ const defaultQuestionForm = () => ({
   })),
   correctOptionKey: "A",
   lessonSubId: "",
-  publisherId: "",
 });
 
 const Booklets = () => {
@@ -84,6 +91,12 @@ const Booklets = () => {
   useEffect(() => {
     loadCategories();
   }, [loadCategories]);
+
+  useEffect(() => {
+    getAllPublishers()
+      .then((d) => setPublishers(Array.isArray(d) ? d : []))
+      .catch(() => setPublishers([]));
+  }, []);
 
   useEffect(() => {
     if (!selectedCategoryId) {
@@ -159,6 +172,7 @@ const Booklets = () => {
   const openCreateBooklet = () => {
     setForm({
       name: "",
+      publisherId: "",
       categorySectionIds: [],
     });
     setModal("create-booklet");
@@ -175,6 +189,7 @@ const Booklets = () => {
       const created = await createBooklet({
         categorySubId: selectedCategorySubId,
         name: form.name.trim(),
+        publisherId: form.publisherId || undefined,
         categorySectionIds:
           Array.isArray(form.categorySectionIds) && form.categorySectionIds.length > 0
             ? form.categorySectionIds
@@ -304,14 +319,12 @@ const Booklets = () => {
     }));
     let correctOptionKey = slot.correctOptionKey ?? "A";
     let lessonSubId = slot.lessonSubId ?? "";
-    let publisherId = slot.publisherId ?? "";
     if (slot.questionId) {
       try {
         const q = await getQuestionById(slot.questionId);
         stem = q.stem ?? stem;
         correctOptionKey = q.correctOptionKey ?? correctOptionKey;
         if (q.lessonSubId) lessonSubId = q.lessonSubId;
-        if (q.publisherId) publisherId = q.publisherId;
         if (Array.isArray(q.options) && q.options.length > 0) {
           options = q.options.map((o, i) => ({
             optionKey: o.optionKey ?? OPTION_KEYS[i] ?? "A",
@@ -335,7 +348,6 @@ const Booklets = () => {
       options,
       correctOptionKey,
       lessonSubId,
-      publisherId,
     });
     setModal("edit-question");
   };
@@ -370,7 +382,6 @@ const Booklets = () => {
         options,
         correctOptionKey: form.correctOptionKey,
         lessonSubId: form.lessonSubId || undefined,
-        publisherId: form.publisherId || undefined,
       });
       toast.success("Soru eklendi.");
       setModal(null);
@@ -397,7 +408,6 @@ const Booklets = () => {
         options,
         correctOptionKey: form.correctOptionKey,
         lessonSubId: form.lessonSubId || undefined,
-        publisherId: form.publisherId || undefined,
       });
       toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
       setModal(null);
@@ -466,6 +476,19 @@ const Booklets = () => {
                     placeholder="Örn. TYT Deneme Kitapçık 1"
                     required
                   />
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label">Yayınevi (opsiyonel)</label>
+                  <select
+                    className="admin-input"
+                    value={form.publisherId ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, publisherId: e.target.value }))}
+                  >
+                    <option value="">—</option>
+                    {publishers.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="admin-form-group">
                   <label className="admin-label">Bölümler (opsiyonel — seçilen bölümler için slot oluşturulur)</label>
@@ -641,33 +664,18 @@ const Booklets = () => {
                     ))}
                   </select>
                 </div>
-                <div className="admin-form-row admin-form-row-2">
-                  <div className="admin-form-group">
-                    <label className="admin-label">Alt konu (LessonSub)</label>
-                    <select
-                      className="admin-input"
-                      value={form.lessonSubId ?? ""}
-                      onChange={(e) => setForm((f) => ({ ...f, lessonSubId: e.target.value }))}
-                    >
-                      <option value="">—</option>
-                      {flatLessonSubs.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label">Yayınevi</label>
-                    <select
-                      className="admin-input"
-                      value={form.publisherId ?? ""}
-                      onChange={(e) => setForm((f) => ({ ...f, publisherId: e.target.value }))}
-                    >
-                      <option value="">—</option>
-                      {publishers.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                <div className="admin-form-group">
+                  <label className="admin-label">Alt konu (LessonSub)</label>
+                  <select
+                    className="admin-input"
+                    value={form.lessonSubId ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, lessonSubId: e.target.value }))}
+                  >
+                    <option value="">—</option>
+                    {flatLessonSubs.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div className="admin-modal-footer">
@@ -797,8 +805,10 @@ const Booklets = () => {
                         }`}
                         onClick={() => loadBookletDetail(b.id)}
                       >
-                        <span className="font-medium truncate">{b.name}</span>
-                        <span className="text-xs text-slate-400 flex-shrink-0">{b.code}</span>
+                        <div className="min-w-0 flex-1">
+                          <span className="font-medium truncate block">{b.name}</span>
+                          <span className="text-xs text-slate-400">{b.code} · {BOOKLET_STATUS_LABELS[b.status] ?? b.status}</span>
+                        </div>
                         <ChevronRight size={18} className="text-slate-400 flex-shrink-0" />
                       </button>
                     </li>
@@ -824,7 +834,14 @@ const Booklets = () => {
                     <FileText size={24} className="text-emerald-600" />
                     <div>
                       <h2 className="text-lg font-bold text-slate-800">{selectedBooklet.name}</h2>
-                      <p className="text-xs text-slate-500">{selectedBooklet.categorySubName ?? "—"} · Kod: {selectedBooklet.code ?? "—"}</p>
+                      <p className="text-xs text-slate-500">
+                      {selectedBooklet.categorySubName ?? "—"} · Kod: {selectedBooklet.code ?? "—"}
+                      {selectedBooklet.status != null && (
+                        <span className="ml-2">
+                          · <span className="admin-badge admin-badge-neutral">{BOOKLET_STATUS_LABELS[selectedBooklet.status] ?? selectedBooklet.status}</span>
+                        </span>
+                      )}
+                    </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">

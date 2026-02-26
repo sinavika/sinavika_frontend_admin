@@ -1,18 +1,27 @@
 // AdminQuestionBookletController — api/AdminQuestionBooklet
-// Rapor: docs/API-QUESTIONS-CONTROLLERS-RAPORU.md
-// QuestionBooklet: kitapçık; QuestionBookletSlot: kitapçık içinde soru slotu.
+// Rapor: docs/API-EXAM-VE-BOOKLET-ENDPOINT-RAPORU.md, API-QUESTIONS-CONTROLLERS-RAPORU.md
+// QuestionBookletDto: publisherId, status eklendi. AddQuestion/UpdateQuestion: PublisherId kaldırıldı.
 import adminApi from "@/api/adminApi";
 
 /**
+ * Tüm kitapçıkları listele. GET /api/AdminQuestionBooklet/list
+ * Sınav oluştururken BookletCode seçimi için kullanılır.
+ */
+export const getBookletList = async () => {
+  const response = await adminApi.get("/AdminQuestionBooklet/list");
+  return Array.isArray(response.data) ? response.data : [];
+};
+
+/**
  * Kitapçık oluştur. POST /api/AdminQuestionBooklet
- * Body: categorySubId, name, categorySectionIds? (opsiyonel; boşsa sadece kitapçık, doluysa bu bölümler için slotlar oluşturulur)
- * @param {{ categorySubId: string, name: string, categorySectionIds?: string[] }} data
+ * QuestionBookletCreateDto: categorySubId, name, publisherId? (opsiyonel), categorySectionIds? (opsiyonel)
  */
 export const createBooklet = async (data) => {
   const body = {
     categorySubId: data.categorySubId,
     name: data.name?.trim() ?? "",
   };
+  if (data.publisherId != null && data.publisherId !== "") body.publisherId = data.publisherId;
   if (data.categorySectionIds != null && data.categorySectionIds.length > 0) {
     body.categorySectionIds = data.categorySectionIds;
   }
@@ -92,7 +101,7 @@ export const getBookletByCode = async (code) => {
 
 /**
  * Slota soru ekle. POST /api/AdminQuestionBooklet/slot/{slotId}/question
- * Body: stem, options (optionKey, text, orderIndex), correctOptionKey, lessonSubId?, publisherId?
+ * AddQuestionToBookletDto: PublisherId kaldırıldı (yayınevi kitapçıkta tanımlı). stem, options, correctOptionKey, lessonSubId?
  */
 export const addQuestionToSlot = async (slotId, data) => {
   const body = {
@@ -105,14 +114,13 @@ export const addQuestionToSlot = async (slotId, data) => {
     correctOptionKey: data.correctOptionKey ?? "A",
   };
   if (data.lessonSubId != null && data.lessonSubId !== "") body.lessonSubId = data.lessonSubId;
-  if (data.publisherId != null && data.publisherId !== "") body.publisherId = data.publisherId;
   const response = await adminApi.post(`/AdminQuestionBooklet/slot/${slotId}/question`, body);
   return response.data;
 };
 
 /**
  * Slottaki soruyu güncelle. PUT /api/AdminQuestionBooklet/slot/{slotId}/question
- * Body: stem?, options?, correctOptionKey?, lessonSubId?, publisherId? (hepsi opsiyonel)
+ * UpdateQuestionInBookletDto: PublisherId kaldırıldı. stem?, options?, correctOptionKey?, lessonSubId? (hepsi opsiyonel)
  */
 export const updateQuestionInSlot = async (slotId, data) => {
   const body = {};
@@ -124,7 +132,6 @@ export const updateQuestionInSlot = async (slotId, data) => {
   }));
   if (data.correctOptionKey != null) body.correctOptionKey = data.correctOptionKey;
   if (data.lessonSubId != null) body.lessonSubId = data.lessonSubId === "" ? null : data.lessonSubId;
-  if (data.publisherId != null) body.publisherId = data.publisherId === "" ? null : data.publisherId;
   const response = await adminApi.put(`/AdminQuestionBooklet/slot/${slotId}/question`, body);
   return response.data;
 };

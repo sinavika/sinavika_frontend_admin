@@ -31,19 +31,41 @@ export const getExamById = async (id) => {
 
 /**
  * Sınav oluştur. POST /AdminExam/create
- * Rapor 10.4: title, description, instructions, publisherId, categoryId, categorySubId, startsAt, endsAt, accessDurationDays, participationQuota, isAdaptive (bölümler sonra AdminExamSection/assign ile eklenir)
+ * AdminExamCreateDto: title, description?, instructions?, bookletCode (zorunlu), startsAt?, endsAt?, accessDurationDays?, participationQuota?, isAdaptive?
+ * Kategori ve yayınevi kitapçıktan alınır. Yanıt: { message, examId, bookletCode }
  */
 export const createExam = async (data) => {
-  const response = await adminApi.post("/AdminExam/create", data);
+  const body = {
+    title: data.title?.trim() ?? "",
+    bookletCode: data.bookletCode?.trim() ?? "",
+  };
+  if (data.description != null) body.description = data.description;
+  if (data.instructions != null) body.instructions = data.instructions;
+  if (data.startsAt != null) body.startsAt = data.startsAt;
+  if (data.endsAt != null) body.endsAt = data.endsAt;
+  if (data.accessDurationDays != null) body.accessDurationDays = Number(data.accessDurationDays);
+  if (data.participationQuota != null) body.participationQuota = Number(data.participationQuota);
+  if (data.isAdaptive != null) body.isAdaptive = Boolean(data.isAdaptive);
+  const response = await adminApi.post("/AdminExam/create", body);
   return response.data;
 };
 
 /**
  * Sınav güncelle. PUT /AdminExam/update?id={id}
- * Rapor 10.5: body sadece title, description, startsAt, endsAt
+ * AdminExamUpdateDto: publisherId, categoryId, categorySubId kaldırıldı (kitapçıktan gelir). title, description?, instructions?, startsAt?, endsAt?, status? vb.
  */
 export const updateExam = async (id, data) => {
-  const response = await adminApi.put("/AdminExam/update", data, {
+  const body = {};
+  if (data.title != null) body.title = data.title;
+  if (data.description != null) body.description = data.description;
+  if (data.instructions != null) body.instructions = data.instructions;
+  if (data.startsAt != null) body.startsAt = data.startsAt;
+  if (data.endsAt != null) body.endsAt = data.endsAt;
+  if (data.status != null) body.status = data.status;
+  if (data.accessDurationDays != null) body.accessDurationDays = data.accessDurationDays;
+  if (data.participationQuota != null) body.participationQuota = data.participationQuota;
+  if (data.isAdaptive != null) body.isAdaptive = data.isAdaptive;
+  const response = await adminApi.put("/AdminExam/update", body, {
     params: { id },
   });
   return response.data;
