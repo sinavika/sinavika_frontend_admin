@@ -11,6 +11,7 @@ import {
   BookOpen,
   ListOrdered,
   Layers,
+  Sliders,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { getAllCategories } from "@/services/adminCategoryService";
@@ -26,6 +27,7 @@ import {
   addQuestionToSlot,
   updateQuestionInSlot,
   removeQuestionFromSlot,
+  setBookletStatus,
   deleteBooklet,
 } from "@/services/adminQuestionBookletService";
 import { getAllLessons } from "@/services/adminLessonService";
@@ -220,6 +222,28 @@ const Booklets = () => {
       setModal(null);
       loadBooklets();
       if (selectedBooklet?.id === form.id) setSelectedBooklet(null);
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openSetBookletStatus = (booklet) => {
+    setForm({ id: booklet.id, name: booklet.name, status: booklet.status ?? 0 });
+    setModal("set-booklet-status");
+  };
+
+  const handleSetBookletStatus = async (e) => {
+    e.preventDefault();
+    if (!form.id || form.status == null) return;
+    setSubmitting(true);
+    try {
+      await setBookletStatus(form.id, form.status);
+      toast.success("Kitapçık durumu güncellendi.");
+      setModal(null);
+      loadBooklets();
+      if (selectedBooklet?.id === form.id) loadBookletDetail(form.id);
     } catch (err) {
       toast.error(getApiError(err));
     } finally {
@@ -710,6 +734,41 @@ const Booklets = () => {
       );
     }
 
+    if (modal === "set-booklet-status") {
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header flex items-center justify-between">
+              <span>Kitapçık durumunu değiştir</span>
+              <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => !submitting && setModal(null)}><X size={18} /></button>
+            </div>
+            <form onSubmit={handleSetBookletStatus}>
+              <div className="admin-modal-body">
+                <p className="text-sm text-slate-600 mb-3"><strong>{form.name}</strong></p>
+                <div className="admin-form-group">
+                  <label className="admin-label admin-label-required">Durum</label>
+                  <select
+                    className="admin-input"
+                    value={form.status ?? 0}
+                    onChange={(e) => setForm((f) => ({ ...f, status: Number(e.target.value) }))}
+                    required
+                  >
+                    {Object.entries(BOOKLET_STATUS_LABELS).map(([val, label]) => (
+                      <option key={val} value={val}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="admin-modal-footer">
+                <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
+                <button type="submit" className="admin-btn admin-btn-primary" disabled={submitting}>{submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Kaydet"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
     return null;
   };
 
@@ -853,6 +912,9 @@ const Booklets = () => {
                         <ListOrdered size={16} /> Tüm bölümler için slot
                       </button>
                     )}
+                    <button type="button" className="admin-btn admin-btn-secondary flex items-center gap-2" onClick={() => openSetBookletStatus(selectedBooklet)} title="Kitapçık durumu">
+                      <Sliders size={16} /> Durum
+                    </button>
                     <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost text-red-600 hover:bg-red-50" onClick={() => openDeleteBooklet(selectedBooklet)} title="Kitapçığı sil">
                       <Trash2 size={18} />
                     </button>

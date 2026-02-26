@@ -145,6 +145,19 @@ export const removeQuestionFromSlot = async (slotId) => {
 };
 
 /**
+ * Kitapçık durumunu güncelle. PUT /api/AdminQuestionBooklet/booklet/{bookletId}/status
+ * Body: { status: number } — 0=Taslak, 1=Hazırlanıyor, 2=Hazırlandı, 3=Tamamlandı, 4=SınavAşamasında
+ * Yanıt 200: { message: "Kitapçık durumu güncellendi." }
+ */
+export const setBookletStatus = async (bookletId, status) => {
+  const response = await adminApi.put(
+    `/AdminQuestionBooklet/booklet/${bookletId}/status`,
+    { status: Number(status) }
+  );
+  return response.data;
+};
+
+/**
  * Kitapçığı sil. DELETE /api/AdminQuestionBooklet/booklet/{bookletId}
  * Cevap 204 No Content.
  */
