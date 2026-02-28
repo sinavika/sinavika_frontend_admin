@@ -34,7 +34,6 @@ import { getAllLessons } from "@/services/adminLessonService";
 import { getLessonMainsByLessonId } from "@/services/adminLessonMainService";
 import { getLessonSubsByLessonMainId } from "@/services/adminLessonSubService";
 import { getAllPublishers } from "@/services/adminPublisherService";
-import { getQuestionById } from "@/services/adminQuestionService";
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from "@/constants";
 
 const getApiError = (err) =>
@@ -333,33 +332,16 @@ const Booklets = () => {
     loadLessonSubsAndPublishers();
   };
 
-  const openEditQuestion = async (slot) => {
+  const openEditQuestion = (slot) => {
     loadLessonSubsAndPublishers();
-    let stem = slot.stem ?? "";
+    const stem = slot.stem ?? "";
     let options = (slot.options || []).map((o, i) => ({
       optionKey: o.optionKey ?? OPTION_KEYS[i] ?? "A",
       text: o.text ?? "",
       orderIndex: o.orderIndex ?? i + 1,
     }));
-    let correctOptionKey = slot.correctOptionKey ?? "A";
-    let lessonSubId = slot.lessonSubId ?? "";
-    if (slot.questionId) {
-      try {
-        const q = await getQuestionById(slot.questionId);
-        stem = q.stem ?? stem;
-        correctOptionKey = q.correctOptionKey ?? correctOptionKey;
-        if (q.lessonSubId) lessonSubId = q.lessonSubId;
-        if (Array.isArray(q.options) && q.options.length > 0) {
-          options = q.options.map((o, i) => ({
-            optionKey: o.optionKey ?? OPTION_KEYS[i] ?? "A",
-            text: o.text ?? "",
-            orderIndex: o.orderIndex ?? i + 1,
-          }));
-        }
-      } catch {
-        // keep slot values
-      }
-    }
+    const correctOptionKey = slot.correctOptionKey ?? "A";
+    const lessonSubId = slot.lessonSubId ?? "";
     if (options.length === 0) {
       OPTION_KEYS.slice(0, 4).forEach((key, i) => {
         options.push({ optionKey: key, text: "", orderIndex: i + 1 });
