@@ -19,10 +19,10 @@ export const getSectionById = async (id) => {
 };
 
 /**
- * Sınava soru şablonu ata (bölüm ekle). POST /AdminExamSection/exam/{examId}/assign
- * Body: categoriesSectionId, questionsTemplateId, orderIndex
+ * Sınava bölüm ata. POST /AdminExamSection/exam/{examId}/assign
+ * Body: categoriesSectionId, orderIndex (QuestionBookletTemplate kaldırıldı)
  * @param {string} examId Sınav id (Guid)
- * @param {{ categoriesSectionId: string, questionsTemplateId: string, orderIndex: number }} data
+ * @param {{ categoriesSectionId: string, orderIndex: number }} data
  */
 export const assignTemplateToExam = async (examId, data) => {
   const response = await adminApi.post(`/AdminExamSection/exam/${examId}/assign`, data);

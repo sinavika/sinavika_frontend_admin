@@ -1,5 +1,5 @@
 // AdminCategorySectionController — api/AdminCategorySection
-// Alt kategori bölüm şablonları (ders bazlı soru sayısı)
+// Doc: docs/Categories/01-Categories-Controllers-Tanitim.md, 02-Categories-API-Endpoints-Detay.md
 import adminApi from "@/api/adminApi";
 
 /**
@@ -28,32 +28,33 @@ export const getSectionsBySubId = async (categorySubId) => {
 
 /**
  * Bölüm şablonu oluştur. POST /AdminCategorySection/create
- * Body: categorySubId, lessonId, lessonSubId?, name, orderIndex, questionCount, durationMinutes?, minQuestions, maxQuestions, targetQuestions?, difficultyMix?
+ * Body (Şubat 2025): categoryFeatureId, lessonId, lessonMainId?, name, orderIndex, questionCount (lessonSubId, durationMinutes, min/max/targetQuestions, difficultyMix kaldırıldı)
  */
 export const createCategorySection = async (data) => {
   const payload = {
-    categorySubId: data.categorySubId,
+    categoryFeatureId: data.categoryFeatureId ?? data.categorySubId,
     lessonId: data.lessonId,
+    lessonMainId: data.lessonMainId ?? null,
     name: data.name?.trim() ?? "",
     orderIndex: Number(data.orderIndex) ?? 0,
     questionCount: Number(data.questionCount) ?? 0,
-    minQuestions: Number(data.minQuestions) ?? 0,
-    maxQuestions: Number(data.maxQuestions) ?? 0,
   };
-  if (data.lessonSubId != null && data.lessonSubId !== "") payload.lessonSubId = data.lessonSubId;
-  if (data.durationMinutes != null && data.durationMinutes !== "") payload.durationMinutes = Number(data.durationMinutes);
-  if (data.targetQuestions != null && data.targetQuestions !== "") payload.targetQuestions = Number(data.targetQuestions);
-  if (data.difficultyMix != null && data.difficultyMix !== "") payload.difficultyMix = data.difficultyMix;
   const response = await adminApi.post("/AdminCategorySection/create", payload);
   return response.data;
 };
 
 /**
  * Bölüm şablonu güncelle. PUT /AdminCategorySection/{id}
- * Body (opsiyonel): lessonId?, lessonSubId?, name?, orderIndex?, questionCount?, durationMinutes?, minQuestions?, maxQuestions?, targetQuestions?, difficultyMix?
+ * Body (Şubat 2025): lessonId?, lessonMainId?, name?, orderIndex?, questionCount? (kaldırılan alanlar gönderilmemeli)
  */
 export const updateCategorySection = async (id, data) => {
-  const response = await adminApi.put(`/AdminCategorySection/${id}`, data);
+  const payload = {};
+  if (data.lessonId != null) payload.lessonId = data.lessonId;
+  if (data.lessonMainId != null) payload.lessonMainId = data.lessonMainId;
+  if (data.name != null) payload.name = data.name;
+  if (data.orderIndex != null) payload.orderIndex = Number(data.orderIndex);
+  if (data.questionCount != null) payload.questionCount = Number(data.questionCount);
+  const response = await adminApi.put(`/AdminCategorySection/${id}`, payload);
   return response.data;
 };
 

@@ -27,9 +27,8 @@ export const getLessonSubById = async (id) => {
 };
 
 /**
- * Belirtilen LessonMain'e yeni LessonSub ekler. POST /AdminLessonSub/{lessonMainId}/create
- * @param {string} lessonMainId LessonMain id (Guid)
- * @param {{ code: string, name: string, description?: string, orderIndex?: number, isActive?: boolean }} data
+ * Ders içeriğine yeni alt konu ekle. POST /AdminLessonSub/{lessonMainId}/create
+ * Body: code, name, description, orderIndex, isActive (code ve name zorunlu)
  */
 export const createLessonSub = async (lessonMainId, data) => {
   const response = await adminApi.post(
@@ -37,7 +36,7 @@ export const createLessonSub = async (lessonMainId, data) => {
     {
       code: data.code?.trim() ?? "",
       name: data.name?.trim() ?? "",
-      description: data.description?.trim() || undefined,
+      description: data.description?.trim() || null,
       orderIndex: Number(data.orderIndex) ?? 0,
       isActive: data.isActive !== false,
     }

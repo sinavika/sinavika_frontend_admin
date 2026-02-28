@@ -1,518 +1,1093 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   FileText,
+  Plus,
+  Pencil,
   Trash2,
-  ChevronDown,
   ChevronRight,
-  ChevronUp,
-  Upload,
-  FileJson,
+  Filter,
+  RefreshCw,
+  X,
   BookOpen,
+  ListOrdered,
+  Layers,
+  Sliders,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { getAllExams } from "@/services/adminExamService";
-import { getSectionsByExamId } from "@/services/adminExamSectionService";
+import { getAllCategories } from "@/services/adminCategoryService";
+import { getSubsByCategoryId } from "@/services/adminCategorySubService";
+import { getSectionsBySubId } from "@/services/adminCategorySectionService";
+import { getFeatureBySubId } from "@/services/adminCategoryFeatureService";
 import {
-  getBookletsByExamId,
-  addQuestionToBookletByCode,
-  updateBookletOrder,
-  deleteBookletItem,
-  bulkImportJson,
-  bulkImportExcel,
-} from "@/services/adminBookletService";
-import { ERROR_MESSAGES } from "@/constants";
+  createBooklet,
+  getBookletsByCategorySubId,
+  getBookletById,
+  createSlotsForSection,
+  createSlotsForFeature,
+  addQuestionToSlot,
+  addQuestionToSlotWithImages,
+  updateQuestionInSlot,
+  updateQuestionInSlotWithImages,
+  removeQuestionFromSlot,
+  setBookletStatus,
+  deleteBooklet,
+} from "@/services/adminQuestionBookletService";
+import { getAllLessons } from "@/services/adminLessonService";
+import { getLessonMainsByLessonId } from "@/services/adminLessonMainService";
+import { getLessonSubsByLessonMainId } from "@/services/adminLessonSubService";
+import { getAllPublishers } from "@/services/adminPublisherService";
+import { ERROR_MESSAGES, SUCCESS_MESSAGES, getFullImageUrl } from "@/constants";
+
+const getApiError = (err) =>
+  err.response?.data?.Error ||
+  err.response?.data?.error ||
+  err.message ||
+  ERROR_MESSAGES.FETCH_FAILED;
+
+const OPTION_KEYS = ["A", "B", "C", "D", "E"];
+
+const BOOKLET_STATUS_LABELS = {
+  0: "Taslak",
+  1: "Hazırlanıyor",
+  2: "Hazırlandı",
+  3: "Tamamlandı",
+  4: "SınavAşamasında",
+};
+
+const defaultQuestionForm = () => ({
+  stem: "",
+  stemImageUrl: "",
+  stemImageFile: null,
+  optionImageA: null,
+  optionImageB: null,
+  optionImageC: null,
+  optionImageD: null,
+  optionImageE: null,
+  options: OPTION_KEYS.slice(0, 4).map((key, i) => ({
+    optionKey: key,
+    text: "",
+    imageUrl: "",
+    orderIndex: i + 1,
+  })),
+  correctOptionKey: "A",
+  lessonSubId: "",
+});
 
 const Booklets = () => {
-  const [exams, setExams] = useState([]);
-  const [selectedExam, setSelectedExam] = useState(null);
-  const [sections, setSections] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [categorySubs, setCategorySubs] = useState([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
+  const [selectedCategorySubId, setSelectedCategorySubId] = useState("");
   const [booklets, setBooklets] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [bookletsLoading, setBookletsLoading] = useState(false);
-  const [addCodeSectionId, setAddCodeSectionId] = useState(null);
-  const [addCodeValue, setAddCodeValue] = useState("");
-  const [addCodeSubmitting, setAddCodeSubmitting] = useState(false);
-  const [orderSubmitting, setOrderSubmitting] = useState(null);
-  const [deleteSubmitting, setDeleteSubmitting] = useState(null);
-  const [bulkTab, setBulkTab] = useState("json"); // "json" | "excel"
-  const [bulkJson, setBulkJson] = useState("");
-  const [bulkFile, setBulkFile] = useState(null);
-  const [bulkSubmitting, setBulkSubmitting] = useState(false);
-  const [bulkResult, setBulkResult] = useState(null);
-  const [expandedSectionId, setExpandedSectionId] = useState(null);
-  const [firstLoadDone, setFirstLoadDone] = useState(false);
+  const [selectedBooklet, setSelectedBooklet] = useState(null);
+  const [sections, setSections] = useState([]);
+  const [feature, setFeature] = useState(null);
 
-  const loadExams = async () => {
-    setLoading(true);
+  const [modal, setModal] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({});
+  const [flatLessonSubs, setFlatLessonSubs] = useState([]);
+  const [publishers, setPublishers] = useState([]);
+
+  const loadCategories = useCallback(async () => {
     try {
-      const data = await getAllExams();
-      setExams(Array.isArray(data) ? data : []);
+      const data = await getAllCategories();
+      setCategories(Array.isArray(data) ? data : []);
     } catch (err) {
-      toast.error(err.message || ERROR_MESSAGES.FETCH_FAILED);
-      setExams([]);
-    } finally {
-      setLoading(false);
+      toast.error(getApiError(err));
     }
-  };
-
-  useEffect(() => {
-    loadExams();
   }, []);
 
   useEffect(() => {
-    if (!selectedExam?.id) {
-      setSections([]);
-      setBooklets([]);
-      setExpandedSectionId(null);
+    loadCategories();
+  }, [loadCategories]);
+
+  useEffect(() => {
+    getAllPublishers()
+      .then((d) => setPublishers(Array.isArray(d) ? d : []))
+      .catch(() => setPublishers([]));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedCategoryId) {
+      setCategorySubs([]);
+      setSelectedCategorySubId("");
       return;
     }
-    setFirstLoadDone(false);
-    setBookletsLoading(true);
-    Promise.all([
-      getSectionsByExamId(selectedExam.id),
-      getBookletsByExamId(selectedExam.id),
-    ])
-      .then(([secData, bookData]) => {
-        const secList = Array.isArray(secData) ? secData : [];
-        setSections(secList);
-        setBooklets(Array.isArray(bookData) ? bookData : []);
-        if (secList.length > 0 && !firstLoadDone) {
-          setExpandedSectionId(secList[0].id);
-          setFirstLoadDone(true);
-        }
+    let cancelled = false;
+    getSubsByCategoryId(selectedCategoryId)
+      .then((data) => {
+        if (!cancelled) setCategorySubs(Array.isArray(data) ? data : []);
       })
       .catch((err) => {
-        toast.error(err.message || ERROR_MESSAGES.FETCH_FAILED);
-        setSections([]);
-        setBooklets([]);
-      })
-      .finally(() => setBookletsLoading(false));
-  }, [selectedExam?.id]);
+        if (!cancelled) {
+          toast.error(getApiError(err));
+          setCategorySubs([]);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [selectedCategoryId]);
 
-  const bookletsBySection = sections.map((sec) => ({
-    section: sec,
-    items: booklets
-      .filter((b) => String(b.examSectionId) === String(sec.id))
-      .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0)),
+  const loadBooklets = useCallback(async () => {
+    if (!selectedCategorySubId) {
+      setBooklets([]);
+      return;
+    }
+    setBookletsLoading(true);
+    try {
+      const data = await getBookletsByCategorySubId(selectedCategorySubId);
+      setBooklets(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error(getApiError(err));
+      setBooklets([]);
+    } finally {
+      setBookletsLoading(false);
+    }
+  }, [selectedCategorySubId]);
+
+  useEffect(() => {
+    loadBooklets();
+  }, [loadBooklets]);
+
+  useEffect(() => {
+    if (!selectedCategorySubId) {
+      setSections([]);
+      setFeature(null);
+      return;
+    }
+    let cancelled = false;
+    Promise.all([
+      getSectionsBySubId(selectedCategorySubId),
+      getFeatureBySubId(selectedCategorySubId).catch(() => null),
+    ]).then(([secs, feat]) => {
+      if (!cancelled) {
+        setSections(Array.isArray(secs) ? secs : []);
+        setFeature(feat || null);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [selectedCategorySubId]);
+
+  const loadBookletDetail = useCallback(async (bookletId) => {
+    try {
+      const data = await getBookletById(bookletId);
+      setSelectedBooklet(data);
+      return data;
+    } catch (err) {
+      toast.error(getApiError(err));
+      setSelectedBooklet(null);
+    }
+  }, []);
+
+  const openCreateBooklet = () => {
+    setForm({
+      name: "",
+      publisherId: "",
+      categorySectionIds: [],
+    });
+    setModal("create-booklet");
+  };
+
+  const handleCreateBooklet = async (e) => {
+    e.preventDefault();
+    if (!selectedCategorySubId || !form.name?.trim()) {
+      toast.error("Alt kategori seçin ve kitapçık adı girin.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const created = await createBooklet({
+        categorySubId: selectedCategorySubId,
+        name: form.name.trim(),
+        publisherId: form.publisherId || undefined,
+        categorySectionIds:
+          Array.isArray(form.categorySectionIds) && form.categorySectionIds.length > 0
+            ? form.categorySectionIds
+            : undefined,
+      });
+      toast.success("Kitapçık oluşturuldu.");
+      setModal(null);
+      loadBooklets();
+      if (created?.id) setSelectedBooklet(created);
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openDeleteBooklet = (booklet) => {
+    setForm({ id: booklet.id, name: booklet.name });
+    setModal("delete-booklet");
+  };
+
+  const handleDeleteBooklet = async () => {
+    if (!form.id) return;
+    setSubmitting(true);
+    try {
+      await deleteBooklet(form.id);
+      toast.success("Kitapçık silindi.");
+      setModal(null);
+      loadBooklets();
+      if (selectedBooklet?.id === form.id) setSelectedBooklet(null);
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openSetBookletStatus = (booklet) => {
+    setForm({ id: booklet.id, name: booklet.name, status: booklet.status ?? 0 });
+    setModal("set-booklet-status");
+  };
+
+  const handleSetBookletStatus = async (e) => {
+    e.preventDefault();
+    if (!form.id || form.status == null) return;
+    setSubmitting(true);
+    try {
+      await setBookletStatus(form.id, form.status);
+      toast.success("Kitapçık durumu güncellendi.");
+      setModal(null);
+      loadBooklets();
+      if (selectedBooklet?.id === form.id) loadBookletDetail(form.id);
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openAddSlotsSection = () => {
+    setForm({
+      questionBookletId: selectedBooklet?.id,
+      categorySectionId: "",
+    });
+    setModal("add-slots-section");
+  };
+
+  const handleAddSlotsSection = async (e) => {
+    e.preventDefault();
+    if (!form.questionBookletId || !form.categorySectionId) {
+      toast.error("Bölüm seçin.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const result = await createSlotsForSection(form.questionBookletId, form.categorySectionId);
+      toast.success(result?.message || `${result?.createdCount ?? 0} slot oluşturuldu.`);
+      setModal(null);
+      loadBookletDetail(selectedBooklet?.id);
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openAddSlotsFeature = () => {
+    setForm({ questionBookletId: selectedBooklet?.id });
+    setModal("add-slots-feature");
+  };
+
+  const handleAddSlotsFeature = async (e) => {
+    e.preventDefault();
+    if (!feature?.id || !selectedBooklet?.id) {
+      toast.error("Sınav özelliği bulunamadı.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const result = await createSlotsForFeature(selectedBooklet.id, feature.id);
+      toast.success(result?.message || `${result?.createdCount ?? 0} slot oluşturuldu.`);
+      setModal(null);
+      loadBookletDetail(selectedBooklet.id);
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const loadLessonSubsAndPublishers = useCallback(async () => {
+    try {
+      const [lessons, pubList] = await Promise.all([
+        getAllLessons(),
+        getAllPublishers().then((d) => (Array.isArray(d) ? d : [])),
+      ]);
+      setPublishers(pubList);
+      const mains = await Promise.all(
+        (Array.isArray(lessons) ? lessons : []).map((l) => getLessonMainsByLessonId(l.id))
+      );
+      const flatMains = mains.flat();
+      const subArrays = await Promise.all(
+        flatMains.map((m) => getLessonSubsByLessonMainId(m.id))
+      );
+      setFlatLessonSubs(subArrays.flat());
+    } catch {
+      setFlatLessonSubs([]);
+      setPublishers([]);
+    }
+  }, []);
+
+  const openAddQuestion = (slot) => {
+    setForm({
+      slotId: slot.id,
+      slotOrderIndex: slot.orderIndex,
+      ...defaultQuestionForm(),
+    });
+    setModal("add-question");
+    loadLessonSubsAndPublishers();
+  };
+
+  const openEditQuestion = (slot) => {
+    loadLessonSubsAndPublishers();
+    const stem = slot.stem ?? "";
+    const rawOptions = Array.isArray(slot.options)
+      ? slot.options
+      : (typeof slot.optionsJson === "string" ? (() => { try { return JSON.parse(slot.optionsJson) || []; } catch { return []; } })() : []);
+    let options = rawOptions.map((o, i) => ({
+      optionKey: o.optionKey ?? OPTION_KEYS[i] ?? "A",
+      text: o.text ?? "",
+      imageUrl: o.imageUrl ?? "",
+      orderIndex: o.orderIndex ?? i + 1,
+    }));
+    const correctOptionKey = slot.correctOptionKey ?? "A";
+    const lessonSubId = slot.lessonSubId ?? "";
+    if (options.length === 0) {
+      OPTION_KEYS.slice(0, 4).forEach((key, i) => {
+        options.push({ optionKey: key, text: "", imageUrl: "", orderIndex: i + 1 });
+      });
+    }
+    setForm({
+      slotId: slot.id,
+      slotOrderIndex: slot.orderIndex,
+      stem,
+      stemImageUrl: slot.stemImageUrl ?? "",
+      stemImageFile: null,
+      optionImageA: null,
+      optionImageB: null,
+      optionImageC: null,
+      optionImageD: null,
+      optionImageE: null,
+      options,
+      correctOptionKey,
+      lessonSubId,
+    });
+    setModal("edit-question");
+  };
+
+  const openRemoveQuestion = (slot) => {
+    setForm({
+      slotId: slot.id,
+      stem: slot.stem || `Soru #${slot.orderIndex}`,
+    });
+    setModal("remove-question");
+  };
+
+  const hasAnyQuestionImageFile = () =>
+    form.stemImageFile ||
+    form.optionImageA ||
+    form.optionImageB ||
+    form.optionImageC ||
+    form.optionImageD ||
+    form.optionImageE;
+
+  const buildQuestionFormData = (payload) => {
+    const fd = new FormData();
+    fd.append("data", JSON.stringify(payload));
+    if (form.stemImageFile) fd.append("stemImage", form.stemImageFile);
+    if (form.optionImageA) fd.append("optionImageA", form.optionImageA);
+    if (form.optionImageB) fd.append("optionImageB", form.optionImageB);
+    if (form.optionImageC) fd.append("optionImageC", form.optionImageC);
+    if (form.optionImageD) fd.append("optionImageD", form.optionImageD);
+    if (form.optionImageE) fd.append("optionImageE", form.optionImageE);
+    return fd;
+  };
+
+  const handleAddQuestion = async (e) => {
+    e.preventDefault();
+    if (!form.slotId || !form.stem?.trim()) {
+      toast.error("Soru metni zorunludur.");
+      return;
+    }
+    const options = (form.options || []).filter((o) => (o.text ?? "").toString().trim() !== "");
+    if (options.length < 2) {
+      toast.error("En az 2 şık girin.");
+      return;
+    }
+    if (!form.correctOptionKey || !options.some((o) => o.optionKey === form.correctOptionKey)) {
+      toast.error("Doğru cevap seçin.");
+      return;
+    }
+    const payload = {
+      stem: form.stem.trim(),
+      options: options.map((o) => ({ optionKey: o.optionKey, text: (o.text ?? "").toString().trim(), orderIndex: Number(o.orderIndex) ?? 0 })),
+      correctOptionKey: form.correctOptionKey,
+      lessonSubId: form.lessonSubId || undefined,
+    };
+    setSubmitting(true);
+    try {
+      if (hasAnyQuestionImageFile()) {
+        const formData = buildQuestionFormData(payload);
+        await addQuestionToSlotWithImages(form.slotId, formData);
+      } else {
+        await addQuestionToSlot(form.slotId, {
+          stem: payload.stem,
+          stemImageUrl: form.stemImageUrl?.trim() || undefined,
+          options: options.map((o) => ({
+            optionKey: o.optionKey,
+            text: (o.text ?? "").toString().trim(),
+            imageUrl: o.imageUrl?.trim() || undefined,
+            orderIndex: Number(o.orderIndex) ?? 0,
+          })),
+          correctOptionKey: payload.correctOptionKey,
+          lessonSubId: payload.lessonSubId,
+        });
+      }
+      toast.success("Soru eklendi.");
+      setModal(null);
+      loadBookletDetail(selectedBooklet?.id);
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUpdateQuestion = async (e) => {
+    e.preventDefault();
+    if (!form.slotId) return;
+    const options = (form.options || []).filter((o) => (o.text ?? "").toString().trim() !== "");
+    if (options.length < 2) {
+      toast.error("En az 2 şık girin.");
+      return;
+    }
+    const payload = {
+      stem: form.stem?.trim(),
+      options: options.map((o) => ({ optionKey: o.optionKey, text: (o.text ?? "").toString().trim(), orderIndex: Number(o.orderIndex) ?? 0 })),
+      correctOptionKey: form.correctOptionKey,
+      lessonSubId: form.lessonSubId || undefined,
+    };
+    setSubmitting(true);
+    try {
+      if (hasAnyQuestionImageFile()) {
+        const formData = buildQuestionFormData(payload);
+        await updateQuestionInSlotWithImages(form.slotId, formData);
+      } else {
+        await updateQuestionInSlot(form.slotId, {
+          stem: payload.stem,
+          stemImageUrl: form.stemImageUrl?.trim() || undefined,
+          options: options.map((o) => ({
+            optionKey: o.optionKey,
+            text: o.text.trim(),
+            imageUrl: o.imageUrl?.trim() || undefined,
+            orderIndex: Number(o.orderIndex) ?? 0,
+          })),
+          correctOptionKey: payload.correctOptionKey,
+          lessonSubId: payload.lessonSubId,
+        });
+      }
+      toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
+      setModal(null);
+      loadBookletDetail(selectedBooklet?.id);
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRemoveQuestion = async () => {
+    if (!form.slotId) return;
+    setSubmitting(true);
+    try {
+      await removeQuestionFromSlot(form.slotId);
+      toast.success("Soru slottan kaldırıldı.");
+      setModal(null);
+      loadBookletDetail(selectedBooklet?.id);
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const slotsBySection = (selectedBooklet?.slots || []).reduce((acc, slot) => {
+    const key = slot.categorySectionId || "unknown";
+    if (!acc[key]) acc[key] = { sectionName: slot.categorySectionName, slots: [] };
+    acc[key].slots.push(slot);
+    return acc;
+  }, {});
+  const sectionGroups = Object.entries(slotsBySection).map(([id, g]) => ({
+    categorySectionId: id,
+    sectionName: g.sectionName,
+    slots: g.slots.sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0)),
   }));
 
-  const getSectionName = (section) => {
-    return section?.name || `Bölüm ${section?.orderIndex ?? ""}`.trim() || section?.id;
-  };
+  const renderModal = () => {
+    if (!modal) return null;
 
-  const handleAddByCode = async (examSectionId) => {
-    const code = addCodeValue?.trim();
-    if (!code || !selectedExam?.id) {
-      toast.error("Soru kodu girin.");
-      return;
-    }
-    setAddCodeSubmitting(true);
-    try {
-      await addQuestionToBookletByCode({
-        examId: selectedExam.id,
-        examSectionId,
-        questionCode: code,
-      });
-      toast.success("Soru kitapçığa eklendi.");
-      setAddCodeValue("");
-      setAddCodeSectionId(null);
-      const data = await getBookletsByExamId(selectedExam.id);
-      setBooklets(Array.isArray(data) ? data : []);
-    } catch (err) {
-      toast.error(err.message || "Soru eklenemedi.");
-    } finally {
-      setAddCodeSubmitting(false);
-    }
-  };
-
-  const handleMoveOrder = async (item, direction) => {
-    const sectionItems = booklets
-      .filter((b) => String(b.examSectionId) === String(item.examSectionId))
-      .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
-    const idx = sectionItems.findIndex((i) => i.id === item.id);
-    if (idx < 0) return;
-    const current = sectionItems[idx].orderIndex ?? 0;
-    const newIndex =
-      direction === "up"
-        ? Math.max(0, current - 1)
-        : Math.min(
-            sectionItems.length - 1,
-            current + 1
-          );
-    if (newIndex === current) return;
-    setOrderSubmitting(item.id);
-    try {
-      await updateBookletOrder(item.id, { orderIndex: newIndex });
-      toast.success("Sıra güncellendi.");
-      const data = await getBookletsByExamId(selectedExam.id);
-      setBooklets(Array.isArray(data) ? data : []);
-    } catch (err) {
-      toast.error(err.message || "Sıra güncellenemedi.");
-    } finally {
-      setOrderSubmitting(null);
-    }
-  };
-
-  const handleDelete = async (item) => {
-    setDeleteSubmitting(item.id);
-    try {
-      await deleteBookletItem(item.id);
-      toast.success("Kayıt kaldırıldı.");
-      const data = await getBookletsByExamId(selectedExam.id);
-      setBooklets(Array.isArray(data) ? data : []);
-    } catch (err) {
-      toast.error(err.message || "Kaldırılamadı.");
-    } finally {
-      setDeleteSubmitting(null);
-    }
-  };
-
-  const handleBulkImportJson = async (e) => {
-    e.preventDefault();
-    const raw = bulkJson?.trim();
-    if (!raw) {
-      toast.error("JSON metni girin.");
-      return;
-    }
-    setBulkSubmitting(true);
-    setBulkResult(null);
-    try {
-      const result = await bulkImportJson({ json: raw });
-      setBulkResult(result);
-      toast.success(
-        `${result?.createdCount ?? 0} soru havuzuna eklendi.`
+    if (modal === "create-booklet") {
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
+          <div className="admin-modal admin-modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header flex items-center justify-between">
+              <span>Yeni kitapçık</span>
+              <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => !submitting && setModal(null)} aria-label="Kapat">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleCreateBooklet}>
+              <div className="admin-modal-body space-y-4">
+                {selectedCategorySubId && (
+                  <p className="text-sm text-slate-600">
+                    Alt kategori: <strong>{categorySubs.find((s) => s.id === selectedCategorySubId)?.name ?? selectedCategorySubId}</strong>
+                  </p>
+                )}
+                <div className="admin-form-group">
+                  <label className="admin-label admin-label-required">Kitapçık adı</label>
+                  <input
+                    type="text"
+                    className="admin-input"
+                    value={form.name ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="Örn. TYT Deneme Kitapçık 1"
+                    required
+                  />
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label">Yayınevi (opsiyonel)</label>
+                  <select
+                    className="admin-input"
+                    value={form.publisherId ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, publisherId: e.target.value }))}
+                  >
+                    <option value="">—</option>
+                    {publishers.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label">Bölümler (opsiyonel — seçilen bölümler için slot oluşturulur)</label>
+                  <div className="border border-slate-200 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
+                    {sections.map((sec) => (
+                      <label key={sec.id} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={(form.categorySectionIds || []).includes(sec.id)}
+                          onChange={(e) => {
+                            const ids = form.categorySectionIds || [];
+                            setForm((f) => ({
+                              ...f,
+                              categorySectionIds: e.target.checked
+                                ? [...ids, sec.id]
+                                : ids.filter((i) => i !== sec.id),
+                            }));
+                          }}
+                          className="rounded border-slate-300 text-emerald-600"
+                        />
+                        <span className="text-sm">{sec.name} (soru: {sec.questionCount ?? 0})</span>
+                      </label>
+                    ))}
+                    {sections.length === 0 && (
+                      <p className="text-sm text-slate-500">Bu alt kategoriye ait bölüm yok.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="admin-modal-footer">
+                <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
+                <button type="submit" className="admin-btn admin-btn-primary" disabled={submitting}>
+                  {submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Oluştur"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       );
-      if (result?.errorCount > 0 && result?.errors?.length) {
-        result.errors.forEach((err) => toast.error(err));
-      }
-    } catch (err) {
-      toast.error(err.message || "Toplu yükleme başarısız.");
-    } finally {
-      setBulkSubmitting(false);
     }
-  };
 
-  const handleBulkImportExcel = async (e) => {
-    e.preventDefault();
-    if (!bulkFile) {
-      toast.error("Excel dosyası seçin.");
-      return;
-    }
-    setBulkSubmitting(true);
-    setBulkResult(null);
-    try {
-      const result = await bulkImportExcel(bulkFile);
-      setBulkResult(result);
-      toast.success(
-        `${result?.createdCount ?? 0} soru havuzuna eklendi.`
+    if (modal === "delete-booklet") {
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">Kitapçığı sil</div>
+            <div className="admin-modal-body">
+              <p className="text-slate-600">
+                <strong>{form.name}</strong> kitapçığı ve tüm slotları kalıcı olarak silinecek. Onaylıyor musunuz?
+              </p>
+            </div>
+            <div className="admin-modal-footer">
+              <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
+              <button type="button" className="admin-btn admin-btn-danger" onClick={handleDeleteBooklet} disabled={submitting}>
+                {submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Sil"}
+              </button>
+            </div>
+          </div>
+        </div>
       );
-      setBulkFile(null);
-      if (result?.errorCount > 0 && result?.errors?.length) {
-        result.errors.forEach((err) => toast.error(err));
-      }
-    } catch (err) {
-      toast.error(err.message || "Toplu yükleme başarısız.");
-    } finally {
-      setBulkSubmitting(false);
     }
+
+    if (modal === "add-slots-section") {
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header flex items-center justify-between">
+              <span>Tek bölüm için slot oluştur</span>
+              <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => !submitting && setModal(null)}><X size={18} /></button>
+            </div>
+            <form onSubmit={handleAddSlotsSection}>
+              <div className="admin-modal-body">
+                <div className="admin-form-group">
+                  <label className="admin-label admin-label-required">Bölüm</label>
+                  <select
+                    className="admin-input"
+                    value={form.categorySectionId ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, categorySectionId: e.target.value }))}
+                    required
+                  >
+                    <option value="">Seçin</option>
+                    {sections.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.questionCount ?? 0} soru)</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="admin-modal-footer">
+                <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
+                <button type="submit" className="admin-btn admin-btn-primary" disabled={submitting}>{submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Slot oluştur"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    if (modal === "add-slots-feature") {
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header flex items-center justify-between">
+              <span>Tüm bölümler için slot oluştur</span>
+              <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => !submitting && setModal(null)}><X size={18} /></button>
+            </div>
+            <form onSubmit={handleAddSlotsFeature}>
+              <div className="admin-modal-body">
+                <p className="text-slate-600 text-sm">
+                  Bu alt kategoriye ait sınav özelliğindeki tüm bölümler için eksik slotlar oluşturulacak.
+                </p>
+              </div>
+              <div className="admin-modal-footer">
+                <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
+                <button type="submit" className="admin-btn admin-btn-primary" disabled={submitting}>{submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Oluştur"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    if (modal === "add-question" || modal === "edit-question") {
+      const isEdit = modal === "edit-question";
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
+          <div className="admin-modal admin-modal-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header flex items-center justify-between">
+              <span>{isEdit ? "Soruyu düzenle" : "Slota soru ekle"}</span>
+              <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => !submitting && setModal(null)}><X size={18} /></button>
+            </div>
+            <form onSubmit={isEdit ? handleUpdateQuestion : handleAddQuestion}>
+              <div className="admin-modal-body space-y-4">
+                <div className="admin-form-group">
+                  <label className="admin-label admin-label-required">Soru metni (Stem)</label>
+                  <textarea
+                    className="admin-input min-h-[100px]"
+                    value={form.stem ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, stem: e.target.value }))}
+                    placeholder="Soru metnini girin..."
+                    required
+                  />
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label">Soru görseli (opsiyonel)</label>
+                  <p className="text-xs text-slate-500 mb-1">JPEG, PNG, GIF veya WebP. Dosya seçerseniz sunucuya yüklenir; URL ise JSON ile kullanılır.</p>
+                  <div className="space-y-2">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      className="admin-input text-sm"
+                      onChange={(e) => setForm((f) => ({ ...f, stemImageFile: e.target.files?.[0] || null }))}
+                    />
+                    {form.stemImageFile && <span className="text-xs text-slate-500">{form.stemImageFile.name}</span>}
+                    <input
+                      type="text"
+                      className="admin-input"
+                      value={form.stemImageUrl ?? ""}
+                      onChange={(e) => setForm((f) => ({ ...f, stemImageUrl: e.target.value }))}
+                      placeholder="Veya soru görseli URL (JSON ile gönderim)"
+                    />
+                    {form.stemImageUrl && !form.stemImageFile && (
+                      <img src={getFullImageUrl(form.stemImageUrl)} alt="" className="w-20 h-20 object-cover rounded border border-slate-200" onError={(e) => { e.target.style.display = "none"; }} />
+                    )}
+                  </div>
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label admin-label-required">Şıklar</label>
+                  <div className="space-y-2">
+                    {(form.options || []).map((opt, idx) => (
+                      <div key={idx} className="flex flex-wrap items-center gap-2 border border-slate-100 rounded-lg p-2">
+                        <span className="w-6 font-mono text-slate-500">{opt.optionKey}</span>
+                        <input
+                          type="text"
+                          className="admin-input flex-1 min-w-[120px]"
+                          value={opt.text ?? ""}
+                          onChange={(e) => {
+                            const opts = [...(form.options || [])];
+                            opts[idx] = { ...opts[idx], text: e.target.value };
+                            setForm((f) => ({ ...f, options: opts }));
+                          }}
+                          placeholder={`Şık ${opt.optionKey}`}
+                        />
+                        <input
+                          type="text"
+                          className="admin-input w-40 text-sm"
+                          value={opt.imageUrl ?? ""}
+                          onChange={(e) => {
+                            const opts = [...(form.options || [])];
+                            opts[idx] = { ...opts[idx], imageUrl: e.target.value };
+                            setForm((f) => ({ ...f, options: opts }));
+                          }}
+                          placeholder="Görsel URL"
+                        />
+                        <label className="flex items-center gap-1 text-xs text-slate-500 whitespace-nowrap">
+                          Görsel:
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/gif,image/webp"
+                            className="text-sm"
+                            onChange={(e) => setForm((f) => ({ ...f, [`optionImage${opt.optionKey}`]: e.target.files?.[0] || null }))}
+                          />
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label admin-label-required">Doğru cevap</label>
+                  <select
+                    className="admin-input"
+                    value={form.correctOptionKey ?? "A"}
+                    onChange={(e) => setForm((f) => ({ ...f, correctOptionKey: e.target.value }))}
+                  >
+                    {(form.options || []).map((o) => (
+                      <option key={o.optionKey} value={o.optionKey}>{o.optionKey}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label">Alt konu (LessonSub)</label>
+                  <select
+                    className="admin-input"
+                    value={form.lessonSubId ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, lessonSubId: e.target.value }))}
+                  >
+                    <option value="">—</option>
+                    {flatLessonSubs.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="admin-modal-footer">
+                <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
+                <button type="submit" className="admin-btn admin-btn-primary" disabled={submitting}>{submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : isEdit ? "Kaydet" : "Ekle"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    if (modal === "remove-question") {
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">Soruyu slottan kaldır</div>
+            <div className="admin-modal-body">
+              <p className="text-slate-600">
+                Slottaki soru kaldırılacak (slot boş kalır). Onaylıyor musunuz?
+              </p>
+              {form.stem && (
+                <p className="mt-2 text-sm text-slate-500 truncate max-w-md">{form.stem}</p>
+              )}
+            </div>
+            <div className="admin-modal-footer">
+              <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
+              <button type="button" className="admin-btn admin-btn-danger" onClick={handleRemoveQuestion} disabled={submitting}>{submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Kaldır"}</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (modal === "set-booklet-status") {
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header flex items-center justify-between">
+              <span>Kitapçık durumunu değiştir</span>
+              <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => !submitting && setModal(null)}><X size={18} /></button>
+            </div>
+            <form onSubmit={handleSetBookletStatus}>
+              <div className="admin-modal-body">
+                <p className="text-sm text-slate-600 mb-3"><strong>{form.name}</strong></p>
+                <div className="admin-form-group">
+                  <label className="admin-label admin-label-required">Durum</label>
+                  <select
+                    className="admin-input"
+                    value={form.status ?? 0}
+                    onChange={(e) => setForm((f) => ({ ...f, status: Number(e.target.value) }))}
+                    required
+                  >
+                    {Object.entries(BOOKLET_STATUS_LABELS).map(([val, label]) => (
+                      <option key={val} value={val}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="admin-modal-footer">
+                <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
+                <button type="submit" className="admin-btn admin-btn-primary" disabled={submitting}>{submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Kaydet"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
   };
 
   return (
-    <div className="admin-page-wrapper">
-      <div className="admin-page-header">
-        <div className="flex flex-col gap-1">
-          <h1 className="admin-page-title">
-            <FileText size={28} className="text-emerald-600 shrink-0" />
+    <div className="booklets-page p-4 sm:p-6 md:p-8">
+      <div className="admin-page-header admin-page-header-gradient mb-6 rounded-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <h1 className="admin-page-title text-slate-800">
+            <FileText size={28} className="text-emerald-600" aria-hidden />
             Kitapçıklar
           </h1>
-          <p className="text-slate-500 text-sm">
-            Sınava göre kitapçık sorularını yönetin veya soru havuzuna toplu yükleme yapın.
-          </p>
         </div>
+        <p className="text-sm text-slate-600 mt-1">
+          QuestionBooklet ve slot yönetimi; slota soru ekleme, güncelleme ve kaldırma.
+        </p>
       </div>
 
-      {/* Sınav seçimi */}
-      <div className="admin-card p-4 mb-4">
-        <label className="admin-label mb-2 block">Sınav seçin</label>
-        <select
-          className="admin-input max-w-md"
-          value={selectedExam?.id ?? ""}
-          onChange={(e) => {
-            const id = e.target.value;
-            setSelectedExam(exams.find((ex) => String(ex.id) === id) || null);
-          }}
-          disabled={loading}
-        >
-          <option value="">— Sınav seçin —</option>
-          {exams.map((ex) => (
-            <option key={ex.id} value={ex.id}>
-              {ex.title}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {loading ? (
-        <div className="admin-loading-center">
-          <span className="admin-spinner" />
-        </div>
-      ) : !selectedExam ? (
-        <div className="admin-empty-state rounded-xl">
-          <BookOpen size={48} className="mx-auto mb-3 text-slate-300" />
-          <p className="font-medium text-slate-600">
-            Kitapçık içeriğini görmek için yukarıdan bir sınav seçin.
-          </p>
-        </div>
-      ) : bookletsLoading ? (
-        <div className="admin-loading-center">
-          <span className="admin-spinner" />
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {bookletsBySection.map(({ section, items }) => (
-            <div
-              key={section.id}
-              className="admin-card admin-card-elevated overflow-hidden"
-            >
+      <div className="booklets-layout grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <aside className="booklets-sidebar lg:col-span-4 xl:col-span-3">
+          <div className="admin-card overflow-hidden rounded-xl border border-slate-200 shadow-sm">
+            <div className="booklets-filter-header px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
+              <Filter size={18} className="text-slate-500" />
+              <span className="font-semibold text-slate-700">Filtre</span>
+            </div>
+            <div className="p-4 space-y-3">
+              <div>
+                <label className="admin-label text-xs text-slate-500 uppercase tracking-wide">Kategori</label>
+                <select
+                  className="admin-input mt-1"
+                  value={selectedCategoryId}
+                  onChange={(e) => {
+                    setSelectedCategoryId(e.target.value);
+                    setSelectedCategorySubId("");
+                  }}
+                >
+                  <option value="">Seçin</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="admin-label text-xs text-slate-500 uppercase tracking-wide">Alt kategori</label>
+                <select
+                  className="admin-input mt-1"
+                  value={selectedCategorySubId}
+                  onChange={(e) => setSelectedCategorySubId(e.target.value)}
+                  disabled={!selectedCategoryId}
+                >
+                  <option value="">Seçin</option>
+                  {categorySubs.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
               <button
                 type="button"
-                className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-50/80 transition-colors"
-                onClick={() =>
-                  setExpandedSectionId((id) =>
-                    id === section.id ? null : section.id
-                  )
-                }
+                className="admin-btn admin-btn-secondary w-full flex items-center justify-center gap-2"
+                onClick={loadBooklets}
+                disabled={bookletsLoading || !selectedCategorySubId}
               >
-                <div className="flex items-center gap-2">
-                  {expandedSectionId === section.id ? (
-                    <ChevronDown size={20} className="text-slate-500" />
-                  ) : (
-                    <ChevronRight size={20} className="text-slate-500" />
-                  )}
-                  <span className="font-semibold text-slate-800">
-                    {getSectionName(section)}
-                  </span>
-                  <span className="admin-badge admin-badge-neutral text-xs">
-                    {items.length} soru
-                  </span>
-                </div>
+                <RefreshCw size={16} className={bookletsLoading ? "animate-spin" : ""} />
+                Yenile
               </button>
-              {expandedSectionId === section.id && (
-                <div className="border-t border-slate-200 bg-slate-50/50">
-                  <div className="p-4 flex flex-wrap items-center gap-2 border-b border-slate-200">
-                    <input
-                      type="text"
-                      className="admin-input flex-1 min-w-[200px] max-w-xs"
-                      placeholder="Soru kodu (örn. MAT123456)"
-                      value={
-                        addCodeSectionId === section.id ? addCodeValue : ""
-                      }
-                      onChange={(e) => {
-                        setAddCodeSectionId(section.id);
-                        setAddCodeValue(e.target.value);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleAddByCode(section.id);
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="admin-btn admin-btn-primary"
-                      disabled={addCodeSubmitting}
-                      onClick={() => handleAddByCode(section.id)}
-                    >
-                      {addCodeSubmitting ? "Ekleniyor…" : "Soru ekle"}
-                    </button>
-                  </div>
-                  <div className="admin-table-wrapper">
-                    <table className="admin-table">
-                      <thead>
-                        <tr>
-                          <th className="w-10">Sıra</th>
-                          <th>Kod</th>
-                          <th>Soru metni</th>
-                          <th>Ders</th>
-                          <th className="text-right w-28">İşlem</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {items.length === 0 ? (
-                          <tr>
-                            <td colSpan={5} className="text-center text-slate-500 py-6">
-                              Bu bölümde henüz soru yok. Yukarıdan soru kodu ile ekleyin.
-                            </td>
-                          </tr>
-                        ) : (
-                          items.map((item) => (
-                            <tr key={item.id}>
-                              <td>
-                                <div className="flex items-center gap-0.5">
-                                  <button
-                                    type="button"
-                                    className="admin-btn admin-btn-ghost admin-btn-icon p-1"
-                                    onClick={() => handleMoveOrder(item, "up")}
-                                    disabled={orderSubmitting === item.id || items.findIndex((i) => i.id === item.id) === 0}
-                                    title="Yukarı taşı"
-                                  >
-                                    <ChevronUp size={16} className="text-slate-500" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="admin-btn admin-btn-ghost admin-btn-icon p-1"
-                                    onClick={() => handleMoveOrder(item, "down")}
-                                    disabled={orderSubmitting === item.id || items.findIndex((i) => i.id === item.id) === items.length - 1}
-                                    title="Aşağı taşı"
-                                  >
-                                    <ChevronDown size={16} className="text-slate-500" />
-                                  </button>
-                                  <span className="text-slate-500 text-sm w-6 ml-1">
-                                    {item.orderIndex ?? "—"}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="font-mono text-sm">
-                                {item.questionCode ?? "—"}
-                              </td>
-                              <td className="max-w-xs truncate text-slate-700" title={item.stem}>
-                                {item.stem ? `${item.stem.slice(0, 80)}${item.stem.length > 80 ? "…" : ""}` : "—"}
-                              </td>
-                              <td className="text-slate-600 text-sm">
-                                {item.lessonName ?? "—"}
-                              </td>
-                              <td className="text-right">
-                                <button
-                                  type="button"
-                                  className="admin-btn admin-btn-ghost admin-btn-icon text-red-600 hover:bg-red-50"
-                                  title="Kaldır"
-                                  disabled={deleteSubmitting === item.id}
-                                  onClick={() => handleDelete(item)}
-                                >
-                                  <Trash2 size={18} />
-                                </button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* Toplu soru yükleme (havuza) */}
-      <div className="mt-10 admin-card admin-card-elevated overflow-hidden">
-        <div className="p-4 border-b border-slate-200 bg-slate-50/50">
-          <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-            <Upload size={20} className="text-emerald-600" />
-            Soru havuzuna toplu yükleme
-          </h2>
-          <p className="text-sm text-slate-500 mt-1">
-            JSON veya Excel ile soruları havuza ekleyin. Kitapçığa eklemek için yukarıdan &quot;Soru ekle&quot; kullanın.
-          </p>
-        </div>
-        <div className="p-4">
-          <div className="flex gap-2 border-b border-slate-200 mb-4">
-            <button
-              type="button"
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-                bulkTab === "json"
-                  ? "bg-emerald-500 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-              onClick={() => setBulkTab("json")}
-            >
-              <FileJson size={16} className="inline mr-2" />
-              JSON
-            </button>
-            <button
-              type="button"
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-                bulkTab === "excel"
-                  ? "bg-emerald-500 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-              onClick={() => setBulkTab("excel")}
-            >
-              <Upload size={16} className="inline mr-2" />
-              Excel
-            </button>
-          </div>
-
-          {bulkTab === "json" && (
-            <form onSubmit={handleBulkImportJson} className="space-y-4">
-              <div className="admin-form-group">
-                <label className="admin-label">
-                  JSON dizisi (her eleman: stem, options, correctOptionKey, lessonId, lessonSubId?, publisherId?)
-                </label>
-                <textarea
-                  className="admin-input min-h-[200px] font-mono text-sm"
-                  value={bulkJson}
-                  onChange={(e) => setBulkJson(e.target.value)}
-                  placeholder={'[{"stem":"2+2 kaçtır?","options":[{"optionKey":"A","text":"3"},{"optionKey":"B","text":"4"}],"correctOptionKey":"B","lessonId":"..."}]'}
-                />
-              </div>
+            <div className="booklets-list-header px-4 py-3 border-t border-slate-200 flex items-center justify-between bg-white">
+              <span className="font-semibold text-slate-700">Kitapçıklar</span>
               <button
-                type="submit"
-                disabled={bulkSubmitting}
-                className="admin-btn admin-btn-primary"
+                type="button"
+                className="admin-btn admin-btn-primary admin-btn-icon"
+                onClick={openCreateBooklet}
+                disabled={!selectedCategorySubId}
+                title="Yeni kitapçık"
               >
-                {bulkSubmitting ? "Yükleniyor…" : "Havuza yükle"}
+                <Plus size={18} />
               </button>
-            </form>
-          )}
-
-          {bulkTab === "excel" && (
-            <form onSubmit={handleBulkImportExcel} className="space-y-4">
-              <div className="admin-form-group">
-                <label className="admin-label">Excel dosyası (.xlsx)</label>
-                <input
-                  type="file"
-                  accept=".xlsx"
-                  className="admin-input"
-                  onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
-                />
-                <p className="text-xs text-slate-500 mt-1">
-                  Sütunlar: Stem, OptionA, OptionB, OptionC, OptionD, OptionE, CorrectOptionKey, LessonId, LessonSubId, PublisherId
-                </p>
-              </div>
-              <button
-                type="submit"
-                disabled={bulkSubmitting || !bulkFile}
-                className="admin-btn admin-btn-primary"
-              >
-                {bulkSubmitting ? "Yükleniyor…" : "Havuza yükle"}
-              </button>
-            </form>
-          )}
-
-          {bulkResult && (
-            <div className="mt-4 p-4 rounded-lg bg-slate-100 border border-slate-200">
-              <p className="font-medium text-slate-700">Sonuç</p>
-              <p className="text-sm text-slate-600">
-                Toplam: {bulkResult.totalRows ?? 0}, Oluşturulan:{" "}
-                {bulkResult.createdCount ?? 0}, Hata: {bulkResult.errorCount ?? 0}
-              </p>
-              {bulkResult.errors?.length > 0 && (
-                <ul className="mt-2 text-sm text-red-600 list-disc list-inside">
-                  {bulkResult.errors.slice(0, 5).map((err, i) => (
-                    <li key={i}>{err}</li>
+            </div>
+            <div className="booklets-list-body max-h-[420px] overflow-y-auto">
+              {!selectedCategorySubId ? (
+                <div className="admin-empty-state py-8 px-4 text-sm">Önce alt kategori seçin.</div>
+              ) : bookletsLoading ? (
+                <div className="admin-loading-center py-12"><span className="admin-spinner" /></div>
+              ) : booklets.length === 0 ? (
+                <div className="admin-empty-state py-8 px-4 text-sm">Kitapçık yok. Yeni kitapçık ekleyin.</div>
+              ) : (
+                <ul className="divide-y divide-slate-100">
+                  {booklets.map((b) => (
+                    <li key={b.id}>
+                      <button
+                        type="button"
+                        className={`booklets-list-item w-full px-4 py-3 flex items-center justify-between gap-2 text-left transition-colors ${
+                          selectedBooklet?.id === b.id ? "bg-emerald-50 border-l-4 border-emerald-500 text-emerald-800" : "hover:bg-slate-50 text-slate-700"
+                        }`}
+                        onClick={() => loadBookletDetail(b.id)}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <span className="font-medium truncate block">{b.name}</span>
+                          <span className="text-xs text-slate-400">{b.code} · {BOOKLET_STATUS_LABELS[b.status] ?? b.status}</span>
+                        </div>
+                        <ChevronRight size={18} className="text-slate-400 flex-shrink-0" />
+                      </button>
+                    </li>
                   ))}
-                  {bulkResult.errors.length > 5 && (
-                    <li>… ve {bulkResult.errors.length - 5} hata daha</li>
-                  )}
                 </ul>
               )}
             </div>
+          </div>
+        </aside>
+
+        <main className="booklets-detail lg:col-span-8 xl:col-span-9 space-y-6">
+          {!selectedBooklet ? (
+            <div className="admin-card admin-empty-state rounded-xl py-16 px-6">
+              <BookOpen size={48} className="mx-auto text-slate-300 mb-4" />
+              <p className="text-slate-500 font-medium">Kitapçık seçin</p>
+              <p className="text-sm text-slate-400 mt-1">Soldan bir kitapçık seçerek slotları ve soruları yönetin.</p>
+            </div>
+          ) : (
+            <>
+              <div className="booklets-detail-card admin-card rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="booklets-detail-header px-5 py-4 flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-emerald-50 to-white border-b border-slate-200">
+                  <div className="flex items-center gap-3">
+                    <FileText size={24} className="text-emerald-600" />
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-800">{selectedBooklet.name}</h2>
+                      <p className="text-xs text-slate-500">
+                      {selectedBooklet.categorySubName ?? "—"} · Kod: {selectedBooklet.code ?? "—"}
+                      {selectedBooklet.status != null && (
+                        <span className="ml-2">
+                          · <span className="admin-badge admin-badge-neutral">{BOOKLET_STATUS_LABELS[selectedBooklet.status] ?? selectedBooklet.status}</span>
+                        </span>
+                      )}
+                    </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button type="button" className="admin-btn admin-btn-secondary flex items-center gap-2" onClick={openAddSlotsSection} disabled={sections.length === 0}>
+                      <Layers size={16} /> Bölüm için slot
+                    </button>
+                    {feature?.id && (
+                      <button type="button" className="admin-btn admin-btn-secondary flex items-center gap-2" onClick={openAddSlotsFeature}>
+                        <ListOrdered size={16} /> Tüm bölümler için slot
+                      </button>
+                    )}
+                    <button type="button" className="admin-btn admin-btn-secondary flex items-center gap-2" onClick={() => openSetBookletStatus(selectedBooklet)} title="Kitapçık durumu">
+                      <Sliders size={16} /> Durum
+                    </button>
+                    <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost text-red-600 hover:bg-red-50" onClick={() => openDeleteBooklet(selectedBooklet)} title="Kitapçığı sil">
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {sectionGroups.length === 0 ? (
+                <div className="admin-card admin-empty-state rounded-xl py-10 px-6">
+                  <p className="text-slate-500">Henüz slot yok. &quot;Bölüm için slot&quot; veya &quot;Tüm bölümler için slot&quot; ile ekleyin.</p>
+                </div>
+              ) : (
+                sectionGroups.map((group) => (
+                  <section key={group.categorySectionId} className="booklets-section admin-card rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="booklets-section-header px-5 py-3 flex items-center justify-between bg-slate-50 border-b border-slate-200">
+                      <h3 className="font-semibold text-slate-800">{group.sectionName}</h3>
+                      <span className="text-sm text-slate-500">{group.slots.length} slot</span>
+                    </div>
+                    <div className="booklets-section-body overflow-x-auto">
+                      <table className="admin-table">
+                        <thead>
+                          <tr>
+                            <th className="w-16">Sıra</th>
+                            <th>Soru / Stem</th>
+                            <th>Kod</th>
+                            <th className="w-40">İşlem</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.slots.map((slot) => (
+                            <tr key={slot.id}>
+                              <td className="font-mono text-slate-600">{slot.orderIndex ?? 0}</td>
+                              <td className="max-w-md">
+                                {slot.questionId ? (
+                                  <div className="flex items-center gap-2">
+                                    {slot.stemImageUrl && (
+                                      <img src={getFullImageUrl(slot.stemImageUrl)} alt="" className="w-10 h-10 object-cover rounded border border-slate-200" />
+                                    )}
+                                    <span className="text-slate-800 truncate flex-1" title={slot.stem}>{slot.stem || slot.questionCode || "—"}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400 italic">Boş slot</span>
+                                )}
+                              </td>
+                              <td><code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">{slot.questionCode ?? "—"}</code></td>
+                              <td>
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  {slot.questionId ? (
+                                    <>
+                                      <button type="button" className="admin-btn admin-btn-ghost admin-btn-icon" onClick={() => openEditQuestion(slot)} title="Düzenle"><Pencil size={14} /></button>
+                                      <button type="button" className="admin-btn admin-btn-ghost admin-btn-icon text-red-600 hover:bg-red-50" onClick={() => openRemoveQuestion(slot)} title="Soruyu kaldır"><Trash2 size={14} /></button>
+                                    </>
+                                  ) : (
+                                    <button type="button" className="admin-btn admin-btn-primary flex items-center gap-1" onClick={() => openAddQuestion(slot)}>
+                                      <Plus size={14} /> Soru ekle
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                ))
+              )}
+            </>
           )}
-        </div>
+        </main>
       </div>
+
+      {renderModal()}
     </div>
   );
 };

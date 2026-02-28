@@ -1,1188 +1,593 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   BookOpen,
   Plus,
   Pencil,
   Trash2,
   ChevronRight,
-  ArrowLeft,
-  ListTree,
-  BookMarked,
   Layers,
+  FolderTree,
+  FileText,
+  Sparkles,
+  Filter,
+  RefreshCw,
+  X,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { getAllCategories } from "@/services/adminCategoryService";
+import { getSubsByCategoryId } from "@/services/adminCategorySubService";
 import {
   getAllLessons,
+  getLessonsByCategorySubId,
+  getLessonById,
   createLesson,
   updateLesson,
   deleteLesson,
 } from "@/services/adminLessonService";
 import {
   getLessonMainsByLessonId,
+  getLessonMainById,
   createLessonMain,
   updateLessonMain,
   deleteLessonMain,
 } from "@/services/adminLessonMainService";
 import {
   getLessonSubsByLessonMainId,
+  getLessonSubById,
   createLessonSub,
   updateLessonSub,
   deleteLessonSub,
 } from "@/services/adminLessonSubService";
 import {
   getMikrosByLessonSubId,
+  getLessonMikroById,
   createLessonMikro,
   updateLessonMikro,
   deleteLessonMikro,
 } from "@/services/adminLessonMikroService";
-import { getAllCategories } from "@/services/adminCategoryService";
-import { getSubsByCategoryId } from "@/services/adminCategorySubService";
-import { SUCCESS_MESSAGES, ERROR_MESSAGES } from "@/constants";
-import { formatDate } from "@/utils/format";
+import { ERROR_MESSAGES, SUCCESS_MESSAGES } from "@/constants";
 
-const defaultMainForm = () => ({
-  code: "",
-  name: "",
-  description: "",
-  orderIndex: 0,
-  isActive: true,
-});
-const defaultSubForm = () => ({
-  code: "",
-  name: "",
-  description: "",
-  orderIndex: 0,
-  isActive: true,
-});
-const defaultMikroForm = () => ({
-  code: "",
-  name: "",
-  description: "",
-  orderIndex: 0,
-  isActive: true,
-});
+const getApiError = (err) =>
+  err.response?.data?.Error || err.response?.data?.error || err.message || ERROR_MESSAGES.FETCH_FAILED;
 
 const Lessons = () => {
-  const [list, setList] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState([]);
-  const [subs, setSubs] = useState([]);
-  const [filterCategoryId, setFilterCategoryId] = useState("");
-  const [filterSubId, setFilterSubId] = useState("");
-  const [filterSubs, setFilterSubs] = useState([]);
+  const [categorySubs, setCategorySubs] = useState([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
+  const [selectedCategorySubId, setSelectedCategorySubId] = useState("");
+  const [lessons, setLessons] = useState([]);
+  const [lessonsLoading, setLessonsLoading] = useState(false);
+  const [selectedLesson, setSelectedLesson] = useState(null);
+  const [lessonMains, setLessonMains] = useState([]);
+  const [lessonMainsLoading, setLessonMainsLoading] = useState(false);
+  const [selectedLessonMain, setSelectedLessonMain] = useState(null);
+  const [lessonSubs, setLessonSubs] = useState([]);
+  const [lessonSubsLoading, setLessonSubsLoading] = useState(false);
+  const [selectedLessonSub, setSelectedLessonSub] = useState(null);
+  const [lessonMikros, setLessonMikros] = useState([]);
+  const [lessonMikrosLoading, setLessonMikrosLoading] = useState(false);
 
   const [modal, setModal] = useState(null);
-  const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [lessonForm, setLessonForm] = useState({
-    categoryId: "",
-    categorySubId: "",
-    orderIndex: 0,
-    isActive: true,
-  });
+  const [form, setForm] = useState({});
+  const [createModalSubs, setCreateModalSubs] = useState([]);
 
-  const [manageLesson, setManageLesson] = useState(null);
-  const [manageMains, setManageMains] = useState([]);
-  const [manageSubs, setManageSubs] = useState([]);
-  const [manageMikros, setManageMikros] = useState([]);
-  const [manageLessonMain, setManageLessonMain] = useState(null);
-  const [manageLessonSub, setManageLessonSub] = useState(null);
-  const [manageLoading, setManageLoading] = useState(false);
-  const [mainForm, setMainForm] = useState(defaultMainForm());
-  const [subForm, setSubForm] = useState(defaultSubForm());
-  const [mikroForm, setMikroForm] = useState(defaultMikroForm());
-  const [mainModal, setMainModal] = useState(null);
-  const [subModal, setSubModal] = useState(null);
-  const [mikroModal, setMikroModal] = useState(null);
-  const [editMainId, setEditMainId] = useState(null);
-  const [editSubId, setEditSubId] = useState(null);
-  const [editMikroId, setEditMikroId] = useState(null);
-
-  const loadLessons = async () => {
-    setLoading(true);
-    try {
-      const data = await getAllLessons();
-      setList(Array.isArray(data) ? data : []);
-    } catch (err) {
-      toast.error(err.message || ERROR_MESSAGES.FETCH_FAILED);
-      setList([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
       const data = await getAllCategories();
       setCategories(Array.isArray(data) ? data : []);
-    } catch {
-      setCategories([]);
+    } catch (err) {
+      toast.error(getApiError(err));
     }
-  };
-
-  useEffect(() => {
-    loadLessons();
-    loadCategories();
   }, []);
 
   useEffect(() => {
-    if (!filterCategoryId) {
-      setFilterSubs([]);
-      return;
-    }
-    getSubsByCategoryId(String(filterCategoryId))
-      .then((data) => setFilterSubs(Array.isArray(data) ? data : []))
-      .catch(() => setFilterSubs([]));
-  }, [filterCategoryId]);
+    loadCategories();
+  }, [loadCategories]);
 
   useEffect(() => {
-    if (!lessonForm.categoryId) {
-      setSubs([]);
+    if (!selectedCategoryId) {
+      setCategorySubs([]);
+      setSelectedCategorySubId("");
       return;
     }
-    getSubsByCategoryId(String(lessonForm.categoryId))
-      .then((data) => setSubs(Array.isArray(data) ? data : []))
-      .catch(() => setSubs([]));
-  }, [lessonForm.categoryId]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await getSubsByCategoryId(selectedCategoryId);
+        if (!cancelled) setCategorySubs(Array.isArray(data) ? data : []);
+      } catch (err) {
+        if (!cancelled) {
+          toast.error(getApiError(err));
+          setCategorySubs([]);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedCategoryId]);
 
-  const filteredList = list.filter((item) => {
-    if (filterCategoryId && !filterSubs.some((s) => String(s.id) === String(item.categorySubId))) return false;
-    if (filterSubId && String(item.categorySubId) !== String(filterSubId)) return false;
-    return true;
-  });
+  const loadLessons = useCallback(async () => {
+    setLessonsLoading(true);
+    try {
+      const data = selectedCategorySubId
+        ? await getLessonsByCategorySubId(selectedCategorySubId)
+        : await getAllLessons();
+      setLessons(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error(getApiError(err));
+      setLessons([]);
+    } finally {
+      setLessonsLoading(false);
+    }
+  }, [selectedCategorySubId]);
 
-  const openCreateLesson = () => {
-    setSelected(null);
-    setLessonForm({ categoryId: "", categorySubId: "", orderIndex: 0, isActive: true });
-    setModal("createLesson");
-  };
+  useEffect(() => {
+    loadLessons();
+  }, [loadLessons]);
 
-  const openEditLesson = (item) => {
-    setSelected(item);
-    setLessonForm({
-      categorySubId: item.categorySubId ?? "",
-      orderIndex: item.orderIndex ?? 0,
-      isActive: item.isActive !== false,
+  useEffect(() => {
+    if (!selectedLesson?.id) {
+      setLessonMains([]);
+      setSelectedLessonMain(null);
+      return;
+    }
+    setLessonMainsLoading(true);
+    getLessonMainsByLessonId(selectedLesson.id)
+      .then((data) => setLessonMains(Array.isArray(data) ? data : []))
+      .catch((err) => {
+        toast.error(getApiError(err));
+        setLessonMains([]);
+      })
+      .finally(() => setLessonMainsLoading(false));
+    setSelectedLessonMain(null);
+  }, [selectedLesson?.id]);
+
+  useEffect(() => {
+    if (!selectedLessonMain?.id) {
+      setLessonSubs([]);
+      setSelectedLessonSub(null);
+      return;
+    }
+    setLessonSubsLoading(true);
+    getLessonSubsByLessonMainId(selectedLessonMain.id)
+      .then((data) => setLessonSubs(Array.isArray(data) ? data : []))
+      .catch((err) => {
+        toast.error(getApiError(err));
+        setLessonSubs([]);
+      })
+      .finally(() => setLessonSubsLoading(false));
+    setSelectedLessonSub(null);
+  }, [selectedLessonMain?.id]);
+
+  useEffect(() => {
+    if (!selectedLessonSub?.id) {
+      setLessonMikros([]);
+      return;
+    }
+    setLessonMikrosLoading(true);
+    getMikrosByLessonSubId(selectedLessonSub.id)
+      .then((data) => setLessonMikros(Array.isArray(data) ? data : []))
+      .catch((err) => {
+        toast.error(getApiError(err));
+        setLessonMikros([]);
+      })
+      .finally(() => setLessonMikrosLoading(false));
+  }, [selectedLessonSub?.id]);
+
+  const openLessonCreate = () => {
+    const catId = selectedCategoryId || (categories[0]?.id ?? "");
+    setForm({
+      categoryId: catId,
+      categorySubId: selectedCategorySubId || "",
+      name: "",
+      orderIndex: lessons.length,
+      isActive: true,
     });
-    setModal("editLesson");
+    setCreateModalSubs(catId ? categorySubs : []);
+    if (catId && !categorySubs.length) {
+      getSubsByCategoryId(catId).then((data) => setCreateModalSubs(Array.isArray(data) ? data : []));
+    }
+    setModal("lesson-create");
   };
 
-  const openDeleteLesson = (item) => {
-    setSelected(item);
-    setModal("deleteLesson");
+  const openLessonEdit = (lesson) => {
+    setForm({
+      name: lesson.name ?? "",
+      orderIndex: lesson.orderIndex ?? 0,
+      isActive: lesson.isActive !== false,
+    });
+    setModal("lesson-edit");
   };
 
-  const closeModal = () => {
-    setModal(null);
-    setSelected(null);
+  const openLessonDelete = (lesson) => {
+    setForm({ id: lesson.id, name: lesson.name });
+    setModal("lesson-delete");
   };
 
-  const handleCreateLesson = async (e) => {
+  const handleLessonCreate = async (e) => {
     e.preventDefault();
-    if (!lessonForm.categorySubId?.trim()) {
-      toast.error("Alt kategori seçin.");
+    if (!form.categorySubId || !form.name?.trim()) {
+      toast.error("Alt kategori ve ders adı zorunludur.");
       return;
     }
     setSubmitting(true);
     try {
       await createLesson({
-        categorySubId: lessonForm.categorySubId,
-        orderIndex: lessonForm.orderIndex,
-        isActive: lessonForm.isActive,
+        categorySubId: form.categorySubId,
+        name: form.name.trim(),
+        orderIndex: Number(form.orderIndex) ?? 0,
+        isActive: form.isActive !== false,
       });
       toast.success("Ders listesi oluşturuldu.");
-      closeModal();
+      setModal(null);
       loadLessons();
     } catch (err) {
-      toast.error(err.message || ERROR_MESSAGES.CREATE_FAILED);
+      toast.error(getApiError(err));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleUpdateLesson = async (e) => {
+  const handleLessonUpdate = async (e) => {
     e.preventDefault();
-    if (!selected?.id) return;
+    if (!selectedLesson?.id) return;
     setSubmitting(true);
     try {
-      await updateLesson(selected.id, {
-        orderIndex: Number(lessonForm.orderIndex) ?? 0,
-        isActive: lessonForm.isActive,
+      await updateLesson(selectedLesson.id, {
+        name: form.name?.trim(),
+        orderIndex: Number(form.orderIndex),
+        isActive: form.isActive,
       });
       toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
-      closeModal();
+      setModal(null);
       loadLessons();
+      setSelectedLesson((prev) =>
+        prev?.id === selectedLesson.id
+          ? { ...prev, ...form, orderIndex: Number(form.orderIndex) }
+          : prev
+      );
     } catch (err) {
-      toast.error(err.message || ERROR_MESSAGES.UPDATE_FAILED);
+      toast.error(getApiError(err));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDeleteLesson = async () => {
-    if (!selected?.id) return;
+  const handleLessonDelete = async () => {
+    if (!form.id) return;
     setSubmitting(true);
     try {
-      await deleteLesson(selected.id);
-      toast.success(SUCCESS_MESSAGES.DELETE_SUCCESS);
-      closeModal();
-      setManageLesson(null);
+      await deleteLesson(form.id);
+      toast.success("Ders listesi pasif hale getirildi.");
+      setModal(null);
       loadLessons();
+      if (selectedLesson?.id === form.id) setSelectedLesson(null);
     } catch (err) {
-      toast.error(err.message || ERROR_MESSAGES.DELETE_FAILED);
+      toast.error(getApiError(err));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const openManage = async (lesson) => {
-    setManageLesson(lesson);
-    setManageLessonMain(null);
-    setManageLessonSub(null);
-    setManageMains([]);
-    setManageSubs([]);
-    setManageMikros([]);
-    setManageLoading(true);
-    try {
-      const mains = await getLessonMainsByLessonId(lesson.id);
-      setManageMains(Array.isArray(mains) ? mains : []);
-    } catch {
-      setManageMains([]);
-    } finally {
-      setManageLoading(false);
-    }
-  };
-
-  const backToMains = () => {
-    setManageLessonMain(null);
-    setManageLessonSub(null);
-    setManageSubs([]);
-    setManageMikros([]);
-    if (manageLesson?.id) {
-      setManageLoading(true);
-      getLessonMainsByLessonId(manageLesson.id)
-        .then((mains) => setManageMains(Array.isArray(mains) ? mains : []))
-        .catch(() => setManageMains([]))
-        .finally(() => setManageLoading(false));
-    }
-  };
-
-  const openMainsSubs = async (main) => {
-    setManageLessonMain(main);
-    setManageSubs([]);
-    setManageMikros([]);
-    setManageLoading(true);
-    try {
-      const subs = await getLessonSubsByLessonMainId(main.id);
-      setManageSubs(Array.isArray(subs) ? subs : []);
-    } catch {
-      setManageSubs([]);
-    } finally {
-      setManageLoading(false);
-    }
-  };
-
-  const backToSubs = () => {
-    setManageLessonSub(null);
-    setManageMikros([]);
-    if (manageLessonMain?.id) {
-      setManageLoading(true);
-      getLessonSubsByLessonMainId(manageLessonMain.id)
-        .then((subs) => setManageSubs(Array.isArray(subs) ? subs : []))
-        .catch(() => setManageSubs([]))
-        .finally(() => setManageLoading(false));
-    }
-  };
-
-  const openSubsMikros = async (sub) => {
-    setManageLessonSub(sub);
-    setManageLoading(true);
-    try {
-      const mikros = await getMikrosByLessonSubId(sub.id);
-      setManageMikros(Array.isArray(mikros) ? mikros : []);
-    } catch {
-      setManageMikros([]);
-    } finally {
-      setManageLoading(false);
-    }
-  };
-
-  const openAddMain = () => {
-    setMainForm(defaultMainForm());
-    setEditMainId(null);
-    setMainModal("add");
-  };
-
-  const openEditMain = (item) => {
-    setMainForm({
-      code: item.code ?? "",
-      name: item.name ?? "",
-      description: item.description ?? "",
-      orderIndex: item.orderIndex ?? 0,
-      isActive: item.isActive !== false,
+  const openLessonMainCreate = () => {
+    setForm({
+      code: "",
+      name: "",
+      description: "",
+      orderIndex: lessonMains.length,
+      isActive: true,
     });
-    setEditMainId(item.id);
-    setMainModal("edit");
+    setModal("lesson-main-create");
   };
 
-  const handleSaveMain = async (e) => {
+  const openLessonMainEdit = (main) => {
+    setForm({
+      id: main.id,
+      code: main.code ?? "",
+      name: main.name ?? "",
+      description: main.description ?? "",
+      orderIndex: main.orderIndex ?? 0,
+      isActive: main.isActive !== false,
+    });
+    setModal("lesson-main-edit");
+  };
+
+  const openLessonMainDelete = (main) => {
+    setForm({ id: main.id, name: main.name });
+    setModal("lesson-main-delete");
+  };
+
+  const handleLessonMainCreate = async (e) => {
     e.preventDefault();
-    if (!mainForm.code?.trim() || !mainForm.name?.trim()) {
+    if (!selectedLesson?.id || !form.code?.trim() || !form.name?.trim()) {
       toast.error("Kod ve ad zorunludur.");
       return;
     }
-    if (!manageLesson?.id) return;
     setSubmitting(true);
     try {
-      if (editMainId) {
-        await updateLessonMain(editMainId, mainForm);
-        toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
-      } else {
-        await createLessonMain(manageLesson.id, mainForm);
-        toast.success("Ders içeriği oluşturuldu.");
-      }
-      setMainModal(null);
-      const mains = await getLessonMainsByLessonId(manageLesson.id);
-      setManageMains(Array.isArray(mains) ? mains : []);
+      await createLessonMain(selectedLesson.id, {
+        code: form.code.trim(),
+        name: form.name.trim(),
+        description: form.description?.trim() || null,
+        orderIndex: Number(form.orderIndex) ?? 0,
+        isActive: form.isActive !== false,
+      });
+      toast.success("Ders içeriği oluşturuldu.");
+      setModal(null);
+      const data = await getLessonMainsByLessonId(selectedLesson.id);
+      setLessonMains(Array.isArray(data) ? data : []);
     } catch (err) {
-      toast.error(err.message || ERROR_MESSAGES.CREATE_FAILED);
+      toast.error(getApiError(err));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDeleteMain = async (item) => {
-    if (!window.confirm(`"${item.name}" ders içeriğini silmek istediğinize emin misiniz?`)) return;
+  const handleLessonMainUpdate = async (e) => {
+    e.preventDefault();
+    if (!form.id) return;
     setSubmitting(true);
     try {
-      await deleteLessonMain(item.id);
+      await updateLessonMain(form.id, {
+        code: form.code?.trim(),
+        name: form.name?.trim(),
+        description: form.description?.trim() || null,
+        orderIndex: Number(form.orderIndex),
+        isActive: form.isActive,
+      });
+      toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
+      setModal(null);
+      if (selectedLesson?.id) {
+        const data = await getLessonMainsByLessonId(selectedLesson.id);
+        setLessonMains(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleLessonMainDelete = async () => {
+    if (!form.id) return;
+    setSubmitting(true);
+    try {
+      await deleteLessonMain(form.id);
       toast.success("Ders içeriği silindi.");
-      if (manageLesson?.id) {
-        const mains = await getLessonMainsByLessonId(manageLesson.id);
-        setManageMains(Array.isArray(mains) ? mains : []);
+      setModal(null);
+      if (selectedLesson?.id) {
+        const data = await getLessonMainsByLessonId(selectedLesson.id);
+        setLessonMains(Array.isArray(data) ? data : []);
       }
-      setManageLessonMain(null);
-      setManageSubs([]);
+      if (selectedLessonMain?.id === form.id) setSelectedLessonMain(null);
     } catch (err) {
-      toast.error(err.message || ERROR_MESSAGES.DELETE_FAILED);
+      toast.error(getApiError(err));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const openAddSub = () => {
-    setSubForm(defaultSubForm());
-    setEditSubId(null);
-    setSubModal("add");
-  };
-
-  const openEditSub = (item) => {
-    setSubForm({
-      code: item.code ?? "",
-      name: item.name ?? "",
-      description: item.description ?? "",
-      orderIndex: item.orderIndex ?? 0,
-      isActive: item.isActive !== false,
+  const openLessonSubCreate = () => {
+    setForm({
+      code: "",
+      name: "",
+      description: "",
+      orderIndex: lessonSubs.length,
+      isActive: true,
     });
-    setEditSubId(item.id);
-    setSubModal("edit");
+    setModal("lesson-sub-create");
   };
 
-  const handleSaveSub = async (e) => {
+  const openLessonSubEdit = (sub) => {
+    setForm({
+      id: sub.id,
+      code: sub.code ?? "",
+      name: sub.name ?? "",
+      description: sub.description ?? "",
+      orderIndex: sub.orderIndex ?? 0,
+      isActive: sub.isActive !== false,
+    });
+    setModal("lesson-sub-edit");
+  };
+
+  const openLessonSubDelete = (sub) => {
+    setForm({ id: sub.id, name: sub.name });
+    setModal("lesson-sub-delete");
+  };
+
+  const handleLessonSubCreate = async (e) => {
     e.preventDefault();
-    if (!subForm.code?.trim() || !subForm.name?.trim()) {
+    if (!selectedLessonMain?.id || !form.code?.trim() || !form.name?.trim()) {
       toast.error("Kod ve ad zorunludur.");
       return;
     }
-    if (!manageLessonMain?.id) return;
     setSubmitting(true);
     try {
-      if (editSubId) {
-        await updateLessonSub(editSubId, subForm);
-        toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
-      } else {
-        await createLessonSub(manageLessonMain.id, subForm);
-        toast.success("Alt konu oluşturuldu.");
-      }
-      setSubModal(null);
-      const subs = await getLessonSubsByLessonMainId(manageLessonMain.id);
-      setManageSubs(Array.isArray(subs) ? subs : []);
+      await createLessonSub(selectedLessonMain.id, {
+        code: form.code.trim(),
+        name: form.name.trim(),
+        description: form.description?.trim() || null,
+        orderIndex: Number(form.orderIndex) ?? 0,
+        isActive: form.isActive !== false,
+      });
+      toast.success("Alt konu oluşturuldu.");
+      setModal(null);
+      const data = await getLessonSubsByLessonMainId(selectedLessonMain.id);
+      setLessonSubs(Array.isArray(data) ? data : []);
     } catch (err) {
-      toast.error(err.message || ERROR_MESSAGES.CREATE_FAILED);
+      toast.error(getApiError(err));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDeleteSub = async (item) => {
-    if (!window.confirm(`"${item.name}" üniteyi silmek istediğinize emin misiniz?`)) return;
+  const handleLessonSubUpdate = async (e) => {
+    e.preventDefault();
+    if (!form.id) return;
     setSubmitting(true);
     try {
-      await deleteLessonSub(item.id);
+      await updateLessonSub(form.id, {
+        code: form.code?.trim(),
+        name: form.name?.trim(),
+        description: form.description?.trim() || null,
+        orderIndex: Number(form.orderIndex),
+        isActive: form.isActive,
+      });
+      toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
+      setModal(null);
+      if (selectedLessonMain?.id) {
+        const data = await getLessonSubsByLessonMainId(selectedLessonMain.id);
+        setLessonSubs(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleLessonSubDelete = async () => {
+    if (!form.id) return;
+    setSubmitting(true);
+    try {
+      await deleteLessonSub(form.id);
       toast.success("Alt konu silindi.");
-      if (manageLessonMain?.id) {
-        const subs = await getLessonSubsByLessonMainId(manageLessonMain.id);
-        setManageSubs(Array.isArray(subs) ? subs : []);
+      setModal(null);
+      if (selectedLessonMain?.id) {
+        const data = await getLessonSubsByLessonMainId(selectedLessonMain.id);
+        setLessonSubs(Array.isArray(data) ? data : []);
       }
-      setManageLessonSub(null);
-      setManageMikros([]);
+      if (selectedLessonSub?.id === form.id) setSelectedLessonSub(null);
     } catch (err) {
-      toast.error(err.message || ERROR_MESSAGES.DELETE_FAILED);
+      toast.error(getApiError(err));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const openAddMikro = () => {
-    setMikroForm(defaultMikroForm());
-    setEditMikroId(null);
-    setMikroModal("add");
-  };
-
-  const openEditMikro = (item) => {
-    setMikroForm({
-      code: item.code ?? "",
-      name: item.name ?? "",
-      description: item.description ?? "",
-      orderIndex: item.orderIndex ?? 0,
-      isActive: item.isActive !== false,
+  const openLessonMikroCreate = () => {
+    setForm({
+      code: "",
+      name: "",
+      description: "",
+      orderIndex: lessonMikros.length,
+      isActive: true,
     });
-    setEditMikroId(item.id);
-    setMikroModal("edit");
+    setModal("lesson-mikro-create");
   };
 
-  const handleSaveMikro = async (e) => {
+  const openLessonMikroEdit = (mikro) => {
+    setForm({
+      id: mikro.id,
+      code: mikro.code ?? "",
+      name: mikro.name ?? "",
+      description: mikro.description ?? "",
+      orderIndex: mikro.orderIndex ?? 0,
+      isActive: mikro.isActive !== false,
+    });
+    setModal("lesson-mikro-edit");
+  };
+
+  const openLessonMikroDelete = (mikro) => {
+    setForm({ id: mikro.id, name: mikro.name });
+    setModal("lesson-mikro-delete");
+  };
+
+  const handleLessonMikroCreate = async (e) => {
     e.preventDefault();
-    if (!mikroForm.code?.trim() || !mikroForm.name?.trim()) {
+    if (!selectedLessonSub?.id || !form.code?.trim() || !form.name?.trim()) {
       toast.error("Kod ve ad zorunludur.");
       return;
     }
-    if (!manageLessonSub?.id) return;
     setSubmitting(true);
     try {
-      if (editMikroId) {
-        await updateLessonMikro(editMikroId, mikroForm);
-        toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
-      } else {
-        await createLessonMikro(manageLessonSub.id, mikroForm);
-        toast.success("Mikro konu oluşturuldu.");
-      }
-      setMikroModal(null);
-      const mikros = await getMikrosByLessonSubId(manageLessonSub.id);
-      setManageMikros(Array.isArray(mikros) ? mikros : []);
+      await createLessonMikro(selectedLessonSub.id, {
+        code: form.code.trim(),
+        name: form.name.trim(),
+        description: form.description?.trim() || null,
+        orderIndex: Number(form.orderIndex) ?? 0,
+        isActive: form.isActive !== false,
+      });
+      toast.success("Mikro konu oluşturuldu.");
+      setModal(null);
+      const data = await getMikrosByLessonSubId(selectedLessonSub.id);
+      setLessonMikros(Array.isArray(data) ? data : []);
     } catch (err) {
-      toast.error(err.message || ERROR_MESSAGES.CREATE_FAILED);
+      toast.error(getApiError(err));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDeleteMikro = async (item) => {
-    if (!window.confirm(`"${item.name}" mikro konuyu silmek istediğinize emin misiniz?`)) return;
+  const handleLessonMikroUpdate = async (e) => {
+    e.preventDefault();
+    if (!form.id) return;
     setSubmitting(true);
     try {
-      await deleteLessonMikro(item.id);
+      await updateLessonMikro(form.id, {
+        code: form.code?.trim(),
+        name: form.name?.trim(),
+        description: form.description?.trim() || null,
+        orderIndex: Number(form.orderIndex),
+        isActive: form.isActive,
+      });
+      toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
+      setModal(null);
+      if (selectedLessonSub?.id) {
+        const data = await getMikrosByLessonSubId(selectedLessonSub.id);
+        setLessonMikros(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleLessonMikroDelete = async () => {
+    if (!form.id) return;
+    setSubmitting(true);
+    try {
+      await deleteLessonMikro(form.id);
       toast.success("Mikro konu silindi.");
-      if (manageLessonSub?.id) {
-        const mikros = await getMikrosByLessonSubId(manageLessonSub.id);
-        setManageMikros(Array.isArray(mikros) ? mikros : []);
+      setModal(null);
+      if (selectedLessonSub?.id) {
+        const data = await getMikrosByLessonSubId(selectedLessonSub.id);
+        setLessonMikros(Array.isArray(data) ? data : []);
       }
     } catch (err) {
-      toast.error(err.message || ERROR_MESSAGES.DELETE_FAILED);
+      toast.error(getApiError(err));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const closeManage = () => {
-    setManageLesson(null);
-    setManageLessonMain(null);
-    setManageLessonSub(null);
-    setManageMains([]);
-    setManageSubs([]);
-    setManageMikros([]);
-  };
+  const renderModal = () => {
+    if (!modal) return null;
 
-  if (manageLesson) {
-    return (
-      <div className="admin-page-wrapper">
-        <div className="admin-page-header flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2 text-slate-600">
-              <button
-                type="button"
-                onClick={closeManage}
-                className="admin-btn admin-btn-ghost admin-btn-icon p-1.5 rounded-lg hover:bg-slate-100"
-                title="Listeye dön"
-              >
-                <ArrowLeft size={20} />
+    if (modal === "lesson-create") {
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
+          <div className="admin-modal admin-modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header flex items-center justify-between">
+              <span>Yeni ders listesi</span>
+              <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => !submitting && setModal(null)} aria-label="Kapat">
+                <X size={18} />
               </button>
-              <span className="text-sm">Ders listesi içeriği</span>
-              <ChevronRight size={16} />
-              <span className="font-semibold text-slate-800">
-                {manageLesson.categorySubName || "Alt kategori"}
-              </span>
             </div>
-            <h1 className="admin-page-title text-xl sm:text-2xl">
-              <BookOpen size={24} className="text-emerald-600 shrink-0" />
-              {manageLessonMain
-                ? manageLessonSub
-                  ? "Mikro konular"
-                  : "Ünite / Ana konular"
-                : "Ders içerikleri (LessonMain)"}
-            </h1>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {!manageLessonMain && (
-              <button
-                type="button"
-                onClick={openAddMain}
-                className="admin-btn admin-btn-primary"
-              >
-                <Plus size={18} />
-                Ders ekle (Matematik, Fizik…)
-              </button>
-            )}
-            {manageLessonMain && !manageLessonSub && (
-              <button
-                type="button"
-                onClick={openAddSub}
-                className="admin-btn admin-btn-primary"
-              >
-                <Plus size={18} />
-                Ünite ekle
-              </button>
-            )}
-            {manageLessonSub && (
-              <button
-                type="button"
-                onClick={openAddMikro}
-                className="admin-btn admin-btn-primary"
-              >
-                <Plus size={18} />
-                Mikro konu ekle
-              </button>
-            )}
-          </div>
-        </div>
-
-        {manageLoading ? (
-          <div className="admin-loading-center">
-            <span className="admin-spinner" />
-          </div>
-        ) : !manageLessonMain ? (
-          <div className="admin-card admin-card-elevated overflow-hidden">
-            {manageMains.length === 0 ? (
-              <div className="admin-empty-state rounded-none">
-                <Layers size={48} className="mx-auto mb-3 text-slate-300" />
-                <p className="font-medium text-slate-600">Henüz ders içeriği yok.</p>
-                <p className="text-sm mt-1">&quot;Ders ekle&quot; ile Matematik, Fizik vb. ekleyin.</p>
-              </div>
-            ) : (
-              <div className="admin-table-wrapper">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Kod</th>
-                      <th>Ad</th>
-                      <th>Sıra</th>
-                      <th>Durum</th>
-                      <th className="text-right">İşlem</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {manageMains.map((m) => (
-                      <tr key={m.id}>
-                        <td className="font-mono text-sm">{m.code}</td>
-                        <td className="font-medium">{m.name}</td>
-                        <td>{m.orderIndex ?? "—"}</td>
-                        <td>
-                          <span
-                            className={
-                              m.isActive
-                                ? "admin-badge admin-badge-success"
-                                : "admin-badge admin-badge-neutral"
-                            }
-                          >
-                            {m.isActive ? "Aktif" : "Pasif"}
-                          </span>
-                        </td>
-                        <td className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              type="button"
-                              onClick={() => openMainsSubs(m)}
-                              className="admin-btn admin-btn-ghost admin-btn-icon text-emerald-600 hover:bg-emerald-50"
-                              title="Üniteler"
-                            >
-                              <ListTree size={18} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openEditMain(m)}
-                              className="admin-btn admin-btn-ghost admin-btn-icon"
-                              title="Düzenle"
-                            >
-                              <Pencil size={18} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteMain(m)}
-                              disabled={submitting}
-                              className="admin-btn admin-btn-ghost admin-btn-icon text-red-600 hover:bg-red-50"
-                              title="Sil"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        ) : !manageLessonSub ? (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm text-slate-600">
-              <button
-                type="button"
-                onClick={backToMains}
-                className="admin-btn admin-btn-ghost text-sm"
-              >
-                <ArrowLeft size={16} className="mr-1" />
-                Ders listesine dön
-              </button>
-              <span className="font-medium text-slate-800">— {manageLessonMain.name}</span>
-            </div>
-            <div className="admin-card admin-card-elevated overflow-hidden">
-              {manageSubs.length === 0 ? (
-                <div className="admin-empty-state rounded-none">
-                  <BookMarked size={48} className="mx-auto mb-3 text-slate-300" />
-                  <p className="font-medium text-slate-600">Bu ders için henüz ünite yok.</p>
-                  <p className="text-sm mt-1">&quot;Ünite ekle&quot; ile ekleyin.</p>
-                </div>
-              ) : (
-                <div className="admin-table-wrapper">
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>Kod</th>
-                        <th>Ad</th>
-                        <th>Sıra</th>
-                        <th>Durum</th>
-                        <th className="text-right">İşlem</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {manageSubs.map((s) => (
-                        <tr key={s.id}>
-                          <td className="font-mono text-sm">{s.code}</td>
-                          <td className="font-medium">{s.name}</td>
-                          <td>{s.orderIndex ?? "—"}</td>
-                          <td>
-                            <span
-                              className={
-                                s.isActive
-                                  ? "admin-badge admin-badge-success"
-                                  : "admin-badge admin-badge-neutral"
-                              }
-                            >
-                              {s.isActive ? "Aktif" : "Pasif"}
-                            </span>
-                          </td>
-                          <td className="text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                type="button"
-                                onClick={() => openSubsMikros(s)}
-                                className="admin-btn admin-btn-ghost admin-btn-icon text-emerald-600 hover:bg-emerald-50"
-                                title="Mikro konular"
-                              >
-                                <ListTree size={18} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openEditSub(s)}
-                                className="admin-btn admin-btn-ghost admin-btn-icon"
-                                title="Düzenle"
-                              >
-                                <Pencil size={18} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteSub(s)}
-                                disabled={submitting}
-                                className="admin-btn admin-btn-ghost admin-btn-icon text-red-600 hover:bg-red-50"
-                                title="Sil"
-                              >
-                                <Trash2 size={18} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm text-slate-600 flex-wrap">
-              <button
-                type="button"
-                onClick={backToSubs}
-                className="admin-btn admin-btn-ghost text-sm"
-              >
-                <ArrowLeft size={16} className="mr-1" />
-                Ünite listesine dön
-              </button>
-              <span className="font-medium text-slate-800">— {manageLessonSub.name}</span>
-            </div>
-            <div className="admin-card admin-card-elevated overflow-hidden">
-              {manageMikros.length === 0 ? (
-                <div className="admin-empty-state rounded-none">
-                  <ListTree size={48} className="mx-auto mb-3 text-slate-300" />
-                  <p className="font-medium text-slate-600">Bu ünite için henüz mikro konu yok.</p>
-                  <p className="text-sm mt-1">&quot;Mikro konu ekle&quot; ile ekleyin.</p>
-                </div>
-              ) : (
-                <div className="admin-table-wrapper">
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>Kod</th>
-                        <th>Ad</th>
-                        <th>Sıra</th>
-                        <th>Durum</th>
-                        <th className="text-right">İşlem</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {manageMikros.map((m) => (
-                        <tr key={m.id}>
-                          <td className="font-mono text-sm">{m.code}</td>
-                          <td className="font-medium">{m.name}</td>
-                          <td>{m.orderIndex ?? "—"}</td>
-                          <td>
-                            <span
-                              className={
-                                m.isActive
-                                  ? "admin-badge admin-badge-success"
-                                  : "admin-badge admin-badge-neutral"
-                              }
-                            >
-                              {m.isActive ? "Aktif" : "Pasif"}
-                            </span>
-                          </td>
-                          <td className="text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                type="button"
-                                onClick={() => openEditMikro(m)}
-                                className="admin-btn admin-btn-ghost admin-btn-icon"
-                                title="Düzenle"
-                              >
-                                <Pencil size={18} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteMikro(m)}
-                                disabled={submitting}
-                                className="admin-btn admin-btn-ghost admin-btn-icon text-red-600 hover:bg-red-50"
-                                title="Sil"
-                              >
-                                <Trash2 size={18} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Modals: Main */}
-        {mainModal && (
-          <div className="admin-modal-backdrop" onClick={() => setMainModal(null)}>
-            <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="admin-modal-header">
-                {editMainId ? "Ders içeriğini düzenle" : "Ders içeriği ekle"}
-              </div>
-              <form onSubmit={handleSaveMain}>
-                <div className="admin-modal-body space-y-4">
-                  <div className="admin-form-group">
-                    <label className="admin-label admin-label-required">Kod</label>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      value={mainForm.code}
-                      onChange={(e) => setMainForm((f) => ({ ...f, code: e.target.value }))}
-                      placeholder="MAT, FIZ"
-                      required
-                    />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label admin-label-required">Ad</label>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      value={mainForm.name}
-                      onChange={(e) => setMainForm((f) => ({ ...f, name: e.target.value }))}
-                      placeholder="Matematik, Fizik"
-                      required
-                    />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label">Açıklama</label>
-                    <textarea
-                      className="admin-input min-h-[80px]"
-                      value={mainForm.description}
-                      onChange={(e) => setMainForm((f) => ({ ...f, description: e.target.value }))}
-                    />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label">Sıra</label>
-                    <input
-                      type="number"
-                      className="admin-input"
-                      min={0}
-                      value={mainForm.orderIndex}
-                      onChange={(e) => setMainForm((f) => ({ ...f, orderIndex: Number(e.target.value) || 0 }))}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="main-active"
-                      checked={mainForm.isActive}
-                      onChange={(e) => setMainForm((f) => ({ ...f, isActive: e.target.checked }))}
-                      className="rounded border-slate-300 text-emerald-600"
-                    />
-                    <label htmlFor="main-active" className="text-sm">Aktif</label>
-                  </div>
-                </div>
-                <div className="admin-modal-footer">
-                  <button type="button" onClick={() => setMainModal(null)} className="admin-btn admin-btn-secondary">İptal</button>
-                  <button type="submit" disabled={submitting} className="admin-btn admin-btn-primary">
-                    {submitting ? "Kaydediliyor…" : "Kaydet"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Modals: Sub */}
-        {subModal && (
-          <div className="admin-modal-backdrop" onClick={() => setSubModal(null)}>
-            <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="admin-modal-header">
-                {editSubId ? "Üniteyi düzenle" : "Ünite ekle"}
-              </div>
-              <form onSubmit={handleSaveSub}>
-                <div className="admin-modal-body space-y-4">
-                  <div className="admin-form-group">
-                    <label className="admin-label admin-label-required">Kod</label>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      value={subForm.code}
-                      onChange={(e) => setSubForm((f) => ({ ...f, code: e.target.value }))}
-                      placeholder="MAT_SAYI"
-                      required
-                    />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label admin-label-required">Ad</label>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      value={subForm.name}
-                      onChange={(e) => setSubForm((f) => ({ ...f, name: e.target.value }))}
-                      placeholder="Sayılar"
-                      required
-                    />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label">Açıklama</label>
-                    <textarea
-                      className="admin-input min-h-[80px]"
-                      value={subForm.description}
-                      onChange={(e) => setSubForm((f) => ({ ...f, description: e.target.value }))}
-                    />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label">Sıra</label>
-                    <input
-                      type="number"
-                      className="admin-input"
-                      min={0}
-                      value={subForm.orderIndex}
-                      onChange={(e) => setSubForm((f) => ({ ...f, orderIndex: Number(e.target.value) || 0 }))}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="sub-active"
-                      checked={subForm.isActive}
-                      onChange={(e) => setSubForm((f) => ({ ...f, isActive: e.target.checked }))}
-                      className="rounded border-slate-300 text-emerald-600"
-                    />
-                    <label htmlFor="sub-active" className="text-sm">Aktif</label>
-                  </div>
-                </div>
-                <div className="admin-modal-footer">
-                  <button type="button" onClick={() => setSubModal(null)} className="admin-btn admin-btn-secondary">İptal</button>
-                  <button type="submit" disabled={submitting} className="admin-btn admin-btn-primary">
-                    {submitting ? "Kaydediliyor…" : "Kaydet"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Modals: Mikro */}
-        {mikroModal && (
-          <div className="admin-modal-backdrop" onClick={() => setMikroModal(null)}>
-            <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="admin-modal-header">
-                {editMikroId ? "Mikro konuyu düzenle" : "Mikro konu ekle"}
-              </div>
-              <form onSubmit={handleSaveMikro}>
-                <div className="admin-modal-body space-y-4">
-                  <div className="admin-form-group">
-                    <label className="admin-label admin-label-required">Kod</label>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      value={mikroForm.code}
-                      onChange={(e) => setMikroForm((f) => ({ ...f, code: e.target.value }))}
-                      placeholder="MAT_SAYI_KUME"
-                      required
-                    />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label admin-label-required">Ad</label>
-                    <input
-                      type="text"
-                      className="admin-input"
-                      value={mikroForm.name}
-                      onChange={(e) => setMikroForm((f) => ({ ...f, name: e.target.value }))}
-                      placeholder="Sayı kümeleri"
-                      required
-                    />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label">Açıklama</label>
-                    <textarea
-                      className="admin-input min-h-[80px]"
-                      value={mikroForm.description}
-                      onChange={(e) => setMikroForm((f) => ({ ...f, description: e.target.value }))}
-                    />
-                  </div>
-                  <div className="admin-form-group">
-                    <label className="admin-label">Sıra</label>
-                    <input
-                      type="number"
-                      className="admin-input"
-                      min={0}
-                      value={mikroForm.orderIndex}
-                      onChange={(e) => setMikroForm((f) => ({ ...f, orderIndex: Number(e.target.value) || 0 }))}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="mikro-active"
-                      checked={mikroForm.isActive}
-                      onChange={(e) => setMikroForm((f) => ({ ...f, isActive: e.target.checked }))}
-                      className="rounded border-slate-300 text-emerald-600"
-                    />
-                    <label htmlFor="mikro-active" className="text-sm">Aktif</label>
-                  </div>
-                </div>
-                <div className="admin-modal-footer">
-                  <button type="button" onClick={() => setMikroModal(null)} className="admin-btn admin-btn-secondary">İptal</button>
-                  <button type="submit" disabled={submitting} className="admin-btn admin-btn-primary">
-                    {submitting ? "Kaydediliyor…" : "Kaydet"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div className="admin-page-wrapper">
-      <div className="admin-page-header">
-        <div className="flex flex-col gap-1">
-          <h1 className="admin-page-title">
-            <BookOpen size={28} className="text-emerald-600 shrink-0" />
-            Dersler
-          </h1>
-          <p className="text-slate-500 text-sm">
-            Kategori alt kategorisine bağlı ders listeleri (Lesson). İçerik yönetimi için bir satıra tıklayın.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={openCreateLesson}
-          className="admin-btn admin-btn-primary shrink-0"
-        >
-          <Plus size={18} />
-          Yeni ders listesi
-        </button>
-      </div>
-
-      <div className="admin-card p-4 mb-4 flex flex-wrap items-center gap-3">
-        <span className="text-sm font-medium text-slate-600">Filtre:</span>
-        <select
-          className="admin-input w-auto min-w-[160px]"
-          value={filterCategoryId}
-          onChange={(e) => {
-            setFilterCategoryId(e.target.value);
-            setFilterSubId("");
-          }}
-        >
-          <option value="">Tüm kategoriler</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
-        <select
-          className="admin-input w-auto min-w-[160px]"
-          value={filterSubId}
-          onChange={(e) => setFilterSubId(e.target.value)}
-          disabled={!filterCategoryId}
-        >
-          <option value="">Tüm alt kategoriler</option>
-          {filterSubs.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
-        {(filterCategoryId || filterSubId) && (
-          <button
-            type="button"
-            onClick={() => { setFilterCategoryId(""); setFilterSubId(""); }}
-            className="admin-btn admin-btn-ghost text-sm"
-          >
-            Filtreyi temizle
-          </button>
-        )}
-      </div>
-
-      {loading ? (
-        <div className="admin-loading-center">
-          <span className="admin-spinner" />
-        </div>
-      ) : filteredList.length === 0 ? (
-        <div className="admin-empty-state rounded-xl">
-          <BookOpen size={48} className="mx-auto mb-3 text-slate-300" />
-          <p className="font-medium text-slate-600">
-            {list.length === 0
-              ? "Henüz ders listesi yok."
-              : "Filtreye uygun kayıt yok."}
-          </p>
-          <p className="text-sm mt-1">
-            {list.length === 0 && '"Yeni ders listesi" ile alt kategoriye bağlı bir liste oluşturun.'}
-          </p>
-        </div>
-      ) : (
-        <div className="admin-card admin-card-elevated overflow-hidden">
-          <div className="admin-table-wrapper">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Alt kategori</th>
-                  <th>Sıra</th>
-                  <th>Durum</th>
-                  <th>Oluşturulma</th>
-                  <th className="text-right">İşlem</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredList.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="cursor-pointer hover:bg-emerald-50/50"
-                    onClick={() => openManage(item)}
-                  >
-                    <td className="font-medium">{item.categorySubName ?? "—"}</td>
-                    <td>{item.orderIndex ?? "—"}</td>
-                    <td>
-                      <span
-                        className={
-                          item.isActive
-                            ? "admin-badge admin-badge-success"
-                            : "admin-badge admin-badge-neutral"
-                        }
-                      >
-                        {item.isActive ? "Aktif" : "Pasif"}
-                      </span>
-                    </td>
-                    <td className="text-slate-500 text-sm">{formatDate(item.createdAt)}</td>
-                    <td className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); openManage(item); }}
-                          className="admin-btn admin-btn-ghost admin-btn-icon text-emerald-600 hover:bg-emerald-50"
-                          title="İçeriği yönet"
-                        >
-                          <ListTree size={18} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); openEditLesson(item); }}
-                          className="admin-btn admin-btn-ghost admin-btn-icon"
-                          title="Düzenle"
-                        >
-                          <Pencil size={18} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); openDeleteLesson(item); }}
-                          className="admin-btn admin-btn-ghost admin-btn-icon text-red-600 hover:bg-red-50"
-                          title="Pasif yap"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Create Lesson */}
-      {modal === "createLesson" && (
-        <div className="admin-modal-backdrop" onClick={closeModal}>
-          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="admin-modal-header">Yeni ders listesi</div>
-            <form onSubmit={handleCreateLesson}>
+            <form onSubmit={handleLessonCreate}>
               <div className="admin-modal-body space-y-4">
                 <div className="admin-form-group">
                   <label className="admin-label admin-label-required">Kategori</label>
                   <select
                     className="admin-input"
-                    value={lessonForm.categoryId}
-                    onChange={(e) => setLessonForm((f) => ({ ...f, categoryId: e.target.value, categorySubId: "" }))}
+                    value={form.categoryId ?? ""}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setForm((f) => ({ ...f, categoryId: id, categorySubId: "" }));
+                      getSubsByCategoryId(id).then((data) => setCreateModalSubs(Array.isArray(data) ? data : []));
+                    }}
+                    required
                   >
                     <option value="">Seçin</option>
                     {categories.map((c) => (
@@ -1194,108 +599,766 @@ const Lessons = () => {
                   <label className="admin-label admin-label-required">Alt kategori</label>
                   <select
                     className="admin-input"
-                    value={lessonForm.categorySubId}
-                    onChange={(e) => setLessonForm((f) => ({ ...f, categorySubId: e.target.value }))}
+                    value={form.categorySubId}
+                    onChange={(e) => setForm((f) => ({ ...f, categorySubId: e.target.value }))}
                     required
-                    disabled={!lessonForm.categoryId}
                   >
                     <option value="">Seçin</option>
-                    {subs.map((s) => (
+                    {createModalSubs.map((s) => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
                   </select>
                 </div>
                 <div className="admin-form-group">
-                  <label className="admin-label">Sıra</label>
+                  <label className="admin-label admin-label-required">Ad</label>
                   <input
-                    type="number"
+                    type="text"
                     className="admin-input"
-                    min={0}
-                    value={lessonForm.orderIndex}
-                    onChange={(e) => setLessonForm((f) => ({ ...f, orderIndex: Number(e.target.value) || 0 }))}
+                    value={form.name ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="Örn. Türkçe"
+                    required
                   />
                 </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="lesson-active"
-                    checked={lessonForm.isActive}
-                    onChange={(e) => setLessonForm((f) => ({ ...f, isActive: e.target.checked }))}
-                    className="rounded border-slate-300 text-emerald-600"
-                  />
-                  <label htmlFor="lesson-active" className="text-sm">Aktif</label>
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label">Sıra</label>
+                    <input
+                      type="number"
+                      min={0}
+                      className="admin-input"
+                      value={form.orderIndex ?? 0}
+                      onChange={(e) => setForm((f) => ({ ...f, orderIndex: e.target.value }))}
+                    />
+                  </div>
+                  <div className="admin-form-group flex items-center gap-2 pt-8">
+                    <input
+                      type="checkbox"
+                      id="lesson-active"
+                      checked={form.isActive !== false}
+                      onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
+                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <label htmlFor="lesson-active" className="admin-label mb-0">Aktif</label>
+                  </div>
                 </div>
               </div>
               <div className="admin-modal-footer">
-                <button type="button" onClick={closeModal} className="admin-btn admin-btn-secondary">İptal</button>
-                <button type="submit" disabled={submitting} className="admin-btn admin-btn-primary">
-                  {submitting ? "Oluşturuluyor…" : "Oluştur"}
+                <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
+                <button type="submit" className="admin-btn admin-btn-primary" disabled={submitting}>
+                  {submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Oluştur"}
                 </button>
               </div>
             </form>
           </div>
         </div>
-      )}
+      );
+    }
 
-      {/* Modal: Edit Lesson */}
-      {modal === "editLesson" && selected && (
-        <div className="admin-modal-backdrop" onClick={closeModal}>
-          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="admin-modal-header">Ders listesini düzenle</div>
-            <form onSubmit={handleUpdateLesson}>
+    if (modal === "lesson-edit") {
+      const currentLesson = selectedLesson;
+      if (!currentLesson) return null;
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
+          <div className="admin-modal admin-modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header flex items-center justify-between">
+              <span>Ders listesini düzenle</span>
+              <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => !submitting && setModal(null)} aria-label="Kapat">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleLessonUpdate}>
               <div className="admin-modal-body space-y-4">
-                <p className="text-sm text-slate-600">Alt kategori: <strong>{selected.categorySubName ?? selected.categorySubId}</strong></p>
                 <div className="admin-form-group">
-                  <label className="admin-label">Sıra</label>
+                  <label className="admin-label admin-label-required">Ad</label>
                   <input
-                    type="number"
+                    type="text"
                     className="admin-input"
-                    min={0}
-                    value={lessonForm.orderIndex}
-                    onChange={(e) => setLessonForm((f) => ({ ...f, orderIndex: Number(e.target.value) || 0 }))}
+                    value={form.name ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    required
                   />
                 </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="edit-lesson-active"
-                    checked={lessonForm.isActive}
-                    onChange={(e) => setLessonForm((f) => ({ ...f, isActive: e.target.checked }))}
-                    className="rounded border-slate-300 text-emerald-600"
-                  />
-                  <label htmlFor="edit-lesson-active" className="text-sm">Aktif</label>
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label">Sıra</label>
+                    <input
+                      type="number"
+                      min={0}
+                      className="admin-input"
+                      value={form.orderIndex ?? 0}
+                      onChange={(e) => setForm((f) => ({ ...f, orderIndex: e.target.value }))}
+                    />
+                  </div>
+                  <div className="admin-form-group flex items-center gap-2 pt-8">
+                    <input
+                      type="checkbox"
+                      id="lesson-edit-active"
+                      checked={form.isActive !== false}
+                      onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
+                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <label htmlFor="lesson-edit-active" className="admin-label mb-0">Aktif</label>
+                  </div>
                 </div>
               </div>
               <div className="admin-modal-footer">
-                <button type="button" onClick={closeModal} className="admin-btn admin-btn-secondary">İptal</button>
-                <button type="submit" disabled={submitting} className="admin-btn admin-btn-primary">
-                  {submitting ? "Kaydediliyor…" : "Güncelle"}
+                <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
+                <button type="submit" className="admin-btn admin-btn-primary" disabled={submitting}>
+                  {submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Kaydet"}
                 </button>
               </div>
             </form>
           </div>
         </div>
-      )}
+      );
+    }
 
-      {/* Modal: Delete Lesson */}
-      {modal === "deleteLesson" && selected && (
-        <div className="admin-modal-backdrop" onClick={closeModal}>
+    if (modal === "lesson-delete") {
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
           <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="admin-modal-header">Ders listesini pasif yap</div>
+            <div className="admin-modal-header">Dersi pasif yap</div>
             <div className="admin-modal-body">
               <p className="text-slate-600">
-                <strong>{selected.categorySubName ?? selected.categorySubId}</strong> ders listesini pasif yapmak istediğinize emin misiniz?
+                <strong>{form.name}</strong> ders listesini pasif yapmak istediğinize emin misiniz? (Soft delete)
               </p>
             </div>
             <div className="admin-modal-footer">
-              <button type="button" onClick={closeModal} className="admin-btn admin-btn-secondary">İptal</button>
-              <button type="button" onClick={handleDeleteLesson} disabled={submitting} className="admin-btn admin-btn-danger">
-                {submitting ? "İşleniyor…" : "Pasif yap"}
+              <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
+              <button type="button" className="admin-btn admin-btn-danger" onClick={handleLessonDelete} disabled={submitting}>
+                {submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Pasif yap"}
               </button>
             </div>
           </div>
         </div>
-      )}
+      );
+    }
+
+    if (modal === "lesson-main-create") {
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
+          <div className="admin-modal admin-modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header flex items-center justify-between">
+              <span>Yeni ders içeriği (LessonMain)</span>
+              <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => !submitting && setModal(null)}><X size={18} /></button>
+            </div>
+            <form onSubmit={handleLessonMainCreate}>
+              <div className="admin-modal-body space-y-4">
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label admin-label-required">Kod</label>
+                    <input type="text" className="admin-input" value={form.code ?? ""} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} placeholder="TR" required />
+                  </div>
+                  <div className="admin-form-group">
+                    <label className="admin-label admin-label-required">Ad</label>
+                    <input type="text" className="admin-input" value={form.name ?? ""} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Türkçe" required />
+                  </div>
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label">Açıklama</label>
+                  <textarea className="admin-input min-h-[80px]" value={form.description ?? ""} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+                </div>
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label">Sıra</label>
+                    <input type="number" min={0} className="admin-input" value={form.orderIndex ?? 0} onChange={(e) => setForm((f) => ({ ...f, orderIndex: e.target.value }))} />
+                  </div>
+                  <div className="admin-form-group flex items-center gap-2 pt-8">
+                    <input type="checkbox" checked={form.isActive !== false} onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))} className="rounded border-slate-300 text-emerald-600" />
+                    <label className="admin-label mb-0">Aktif</label>
+                  </div>
+                </div>
+              </div>
+              <div className="admin-modal-footer">
+                <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
+                <button type="submit" className="admin-btn admin-btn-primary" disabled={submitting}>{submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Oluştur"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    if (modal === "lesson-main-edit") {
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
+          <div className="admin-modal admin-modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header flex items-center justify-between">
+              <span>Ders içeriğini düzenle</span>
+              <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => !submitting && setModal(null)}><X size={18} /></button>
+            </div>
+            <form onSubmit={handleLessonMainUpdate}>
+              <div className="admin-modal-body space-y-4">
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label admin-label-required">Kod</label>
+                    <input type="text" className="admin-input" value={form.code ?? ""} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} required />
+                  </div>
+                  <div className="admin-form-group">
+                    <label className="admin-label admin-label-required">Ad</label>
+                    <input type="text" className="admin-input" value={form.name ?? ""} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
+                  </div>
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label">Açıklama</label>
+                  <textarea className="admin-input min-h-[80px]" value={form.description ?? ""} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+                </div>
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label">Sıra</label>
+                    <input type="number" min={0} className="admin-input" value={form.orderIndex ?? 0} onChange={(e) => setForm((f) => ({ ...f, orderIndex: e.target.value }))} />
+                  </div>
+                  <div className="admin-form-group flex items-center gap-2 pt-8">
+                    <input type="checkbox" checked={form.isActive !== false} onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))} className="rounded border-slate-300 text-emerald-600" />
+                    <label className="admin-label mb-0">Aktif</label>
+                  </div>
+                </div>
+              </div>
+              <div className="admin-modal-footer">
+                <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
+                <button type="submit" className="admin-btn admin-btn-primary" disabled={submitting}>{submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Kaydet"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    if (modal === "lesson-main-delete") {
+      const main = lessonMains.find((m) => m.id === form.id) || { id: form.id, name: form.name };
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">Ders içeriğini sil</div>
+            <div className="admin-modal-body">
+              <p className="text-slate-600"><strong>{main.name}</strong> kalıcı olarak silinecek. Onaylıyor musunuz?</p>
+            </div>
+            <div className="admin-modal-footer">
+              <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
+              <button type="button" className="admin-btn admin-btn-danger" onClick={handleLessonMainDelete} disabled={submitting}>{submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Sil"}</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (modal === "lesson-sub-create") {
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
+          <div className="admin-modal admin-modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header flex items-center justify-between">
+              <span>Yeni alt konu (LessonSub)</span>
+              <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => !submitting && setModal(null)}><X size={18} /></button>
+            </div>
+            <form onSubmit={handleLessonSubCreate}>
+              <div className="admin-modal-body space-y-4">
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label admin-label-required">Kod</label>
+                    <input type="text" className="admin-input" value={form.code ?? ""} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} placeholder="TR_OKUMA" required />
+                  </div>
+                  <div className="admin-form-group">
+                    <label className="admin-label admin-label-required">Ad</label>
+                    <input type="text" className="admin-input" value={form.name ?? ""} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Okuma" required />
+                  </div>
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label">Açıklama</label>
+                  <textarea className="admin-input min-h-[80px]" value={form.description ?? ""} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+                </div>
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label">Sıra</label>
+                    <input type="number" min={0} className="admin-input" value={form.orderIndex ?? 0} onChange={(e) => setForm((f) => ({ ...f, orderIndex: e.target.value }))} />
+                  </div>
+                  <div className="admin-form-group flex items-center gap-2 pt-8">
+                    <input type="checkbox" checked={form.isActive !== false} onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))} className="rounded border-slate-300 text-emerald-600" />
+                    <label className="admin-label mb-0">Aktif</label>
+                  </div>
+                </div>
+              </div>
+              <div className="admin-modal-footer">
+                <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
+                <button type="submit" className="admin-btn admin-btn-primary" disabled={submitting}>{submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Oluştur"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    if (modal === "lesson-sub-edit") {
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
+          <div className="admin-modal admin-modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header flex items-center justify-between">
+              <span>Alt konuyu düzenle</span>
+              <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => !submitting && setModal(null)}><X size={18} /></button>
+            </div>
+            <form onSubmit={handleLessonSubUpdate}>
+              <div className="admin-modal-body space-y-4">
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label admin-label-required">Kod</label>
+                    <input type="text" className="admin-input" value={form.code ?? ""} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} required />
+                  </div>
+                  <div className="admin-form-group">
+                    <label className="admin-label admin-label-required">Ad</label>
+                    <input type="text" className="admin-input" value={form.name ?? ""} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
+                  </div>
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label">Açıklama</label>
+                  <textarea className="admin-input min-h-[80px]" value={form.description ?? ""} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+                </div>
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label">Sıra</label>
+                    <input type="number" min={0} className="admin-input" value={form.orderIndex ?? 0} onChange={(e) => setForm((f) => ({ ...f, orderIndex: e.target.value }))} />
+                  </div>
+                  <div className="admin-form-group flex items-center gap-2 pt-8">
+                    <input type="checkbox" checked={form.isActive !== false} onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))} className="rounded border-slate-300 text-emerald-600" />
+                    <label className="admin-label mb-0">Aktif</label>
+                  </div>
+                </div>
+              </div>
+              <div className="admin-modal-footer">
+                <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
+                <button type="submit" className="admin-btn admin-btn-primary" disabled={submitting}>{submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Kaydet"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    if (modal === "lesson-sub-delete") {
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">Alt konuyu sil</div>
+            <div className="admin-modal-body">
+              <p className="text-slate-600"><strong>{form.name}</strong> kalıcı olarak silinecek. Onaylıyor musunuz?</p>
+            </div>
+            <div className="admin-modal-footer">
+              <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
+              <button type="button" className="admin-btn admin-btn-danger" onClick={handleLessonSubDelete} disabled={submitting}>{submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Sil"}</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (modal === "lesson-mikro-create") {
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
+          <div className="admin-modal admin-modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header flex items-center justify-between">
+              <span>Yeni mikro konu</span>
+              <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => !submitting && setModal(null)}><X size={18} /></button>
+            </div>
+            <form onSubmit={handleLessonMikroCreate}>
+              <div className="admin-modal-body space-y-4">
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label admin-label-required">Kod</label>
+                    <input type="text" className="admin-input" value={form.code ?? ""} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} placeholder="TR_OKUMA_ANLAMA" required />
+                  </div>
+                  <div className="admin-form-group">
+                    <label className="admin-label admin-label-required">Ad</label>
+                    <input type="text" className="admin-input" value={form.name ?? ""} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Okuma ve anlama" required />
+                  </div>
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label">Açıklama</label>
+                  <textarea className="admin-input min-h-[80px]" value={form.description ?? ""} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+                </div>
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label">Sıra</label>
+                    <input type="number" min={0} className="admin-input" value={form.orderIndex ?? 0} onChange={(e) => setForm((f) => ({ ...f, orderIndex: e.target.value }))} />
+                  </div>
+                  <div className="admin-form-group flex items-center gap-2 pt-8">
+                    <input type="checkbox" checked={form.isActive !== false} onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))} className="rounded border-slate-300 text-emerald-600" />
+                    <label className="admin-label mb-0">Aktif</label>
+                  </div>
+                </div>
+              </div>
+              <div className="admin-modal-footer">
+                <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
+                <button type="submit" className="admin-btn admin-btn-primary" disabled={submitting}>{submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Oluştur"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    if (modal === "lesson-mikro-edit") {
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
+          <div className="admin-modal admin-modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header flex items-center justify-between">
+              <span>Mikro konuyu düzenle</span>
+              <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => !submitting && setModal(null)}><X size={18} /></button>
+            </div>
+            <form onSubmit={handleLessonMikroUpdate}>
+              <div className="admin-modal-body space-y-4">
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label admin-label-required">Kod</label>
+                    <input type="text" className="admin-input" value={form.code ?? ""} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} required />
+                  </div>
+                  <div className="admin-form-group">
+                    <label className="admin-label admin-label-required">Ad</label>
+                    <input type="text" className="admin-input" value={form.name ?? ""} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
+                  </div>
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label">Açıklama</label>
+                  <textarea className="admin-input min-h-[80px]" value={form.description ?? ""} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+                </div>
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label">Sıra</label>
+                    <input type="number" min={0} className="admin-input" value={form.orderIndex ?? 0} onChange={(e) => setForm((f) => ({ ...f, orderIndex: e.target.value }))} />
+                  </div>
+                  <div className="admin-form-group flex items-center gap-2 pt-8">
+                    <input type="checkbox" checked={form.isActive !== false} onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))} className="rounded border-slate-300 text-emerald-600" />
+                    <label className="admin-label mb-0">Aktif</label>
+                  </div>
+                </div>
+              </div>
+              <div className="admin-modal-footer">
+                <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
+                <button type="submit" className="admin-btn admin-btn-primary" disabled={submitting}>{submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Kaydet"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    if (modal === "lesson-mikro-delete") {
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">Mikro konuyu sil</div>
+            <div className="admin-modal-body">
+              <p className="text-slate-600"><strong>{form.name}</strong> kalıcı olarak silinecek. Onaylıyor musunuz?</p>
+            </div>
+            <div className="admin-modal-footer">
+              <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
+              <button type="button" className="admin-btn admin-btn-danger" onClick={handleLessonMikroDelete} disabled={submitting}>{submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Sil"}</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <div className="lessons-page p-4 sm:p-6 md:p-8">
+      <div className="admin-page-header admin-page-header-gradient mb-6 rounded-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <h1 className="admin-page-title text-slate-800">
+            <BookOpen size={28} className="text-emerald-600" aria-hidden />
+            Dersler
+          </h1>
+        </div>
+        <p className="text-sm text-slate-600 mt-1">
+          CategorySub → Lesson → LessonMain → LessonSub → LessonMikro hiyerarşisini yönetin.
+        </p>
+      </div>
+
+      <div className="lessons-layout grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <aside className="lessons-sidebar lg:col-span-4 xl:col-span-3">
+          <div className="admin-card overflow-hidden rounded-xl border border-slate-200 shadow-sm">
+            <div className="lessons-filter-header px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
+              <Filter size={18} className="text-slate-500" />
+              <span className="font-semibold text-slate-700">Filtre</span>
+            </div>
+            <div className="p-4 space-y-3">
+              <div>
+                <label className="admin-label text-xs text-slate-500 uppercase tracking-wide">Kategori</label>
+                <select
+                  className="admin-input mt-1"
+                  value={selectedCategoryId}
+                  onChange={(e) => {
+                    setSelectedCategoryId(e.target.value);
+                    setSelectedCategorySubId("");
+                  }}
+                >
+                  <option value="">Tümü</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="admin-label text-xs text-slate-500 uppercase tracking-wide">Alt kategori</label>
+                <select
+                  className="admin-input mt-1"
+                  value={selectedCategorySubId}
+                  onChange={(e) => setSelectedCategorySubId(e.target.value)}
+                  disabled={!selectedCategoryId}
+                >
+                  <option value="">Tüm dersler</option>
+                  {categorySubs.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="button"
+                className="admin-btn admin-btn-secondary w-full flex items-center justify-center gap-2"
+                onClick={loadLessons}
+                disabled={lessonsLoading}
+              >
+                <RefreshCw size={16} className={lessonsLoading ? "animate-spin" : ""} />
+                Yenile
+              </button>
+            </div>
+            <div className="lessons-list-header px-4 py-3 border-t border-slate-200 flex items-center justify-between bg-white">
+              <span className="font-semibold text-slate-700">Ders listesi</span>
+              <button
+                type="button"
+                className="admin-btn admin-btn-primary admin-btn-icon"
+                onClick={openLessonCreate}
+                title="Yeni ders"
+              >
+                <Plus size={18} />
+              </button>
+            </div>
+            <div className="lessons-list-body max-h-[420px] overflow-y-auto">
+              {lessonsLoading ? (
+                <div className="admin-loading-center py-12">
+                  <span className="admin-spinner" />
+                </div>
+              ) : lessons.length === 0 ? (
+                <div className="admin-empty-state py-8 px-4 text-sm">
+                  Ders yok. Alt kategori seçip filtreleyebilir veya yeni ders ekleyebilirsiniz.
+                </div>
+              ) : (
+                <ul className="divide-y divide-slate-100">
+                  {lessons.map((lesson) => (
+                    <li key={lesson.id}>
+                      <button
+                        type="button"
+                        className={`lessons-list-item w-full px-4 py-3 flex items-center justify-between gap-2 text-left transition-colors ${
+                          selectedLesson?.id === lesson.id
+                            ? "bg-emerald-50 border-l-4 border-emerald-500 text-emerald-800"
+                            : "hover:bg-slate-50 text-slate-700"
+                        }`}
+                        onClick={() => setSelectedLesson(lesson)}
+                      >
+                        <span className="font-medium truncate">{lesson.name}</span>
+                        <ChevronRight size={18} className="text-slate-400 flex-shrink-0" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </aside>
+
+        <main className="lessons-detail lg:col-span-8 xl:col-span-9 space-y-6">
+          {!selectedLesson ? (
+            <div className="admin-card admin-empty-state rounded-xl py-16 px-6">
+              <Layers size={48} className="mx-auto text-slate-300 mb-4" />
+              <p className="text-slate-500 font-medium">Ders seçin</p>
+              <p className="text-sm text-slate-400 mt-1">Soldan bir ders seçerek içeriklerini yönetin.</p>
+            </div>
+          ) : (
+            <>
+              <div className="lessons-detail-card admin-card rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="lessons-detail-header px-5 py-4 flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-emerald-50 to-white border-b border-slate-200">
+                  <div className="flex items-center gap-3">
+                    <BookOpen size={24} className="text-emerald-600" />
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-800">{selectedLesson.name}</h2>
+                      <p className="text-xs text-slate-500">{selectedLesson.categorySubName ?? "—"} · Sıra: {selectedLesson.orderIndex ?? 0}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={selectedLesson.isActive !== false ? "admin-badge admin-badge-success" : "admin-badge admin-badge-danger"}>
+                      {selectedLesson.isActive !== false ? "Aktif" : "Pasif"}
+                    </span>
+                    <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => openLessonEdit(selectedLesson)} title="Düzenle">
+                      <Pencil size={18} />
+                    </button>
+                    <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost text-red-600 hover:bg-red-50" onClick={() => openLessonDelete(selectedLesson)} title="Pasif yap">
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <section className="lessons-section admin-card rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="lessons-section-header px-5 py-3 flex items-center justify-between bg-slate-50 border-b border-slate-200">
+                  <div className="flex items-center gap-2">
+                    <FileText size={20} className="text-slate-600" />
+                    <h3 className="font-semibold text-slate-800">Ders içerikleri (LessonMain)</h3>
+                  </div>
+                  <button type="button" className="admin-btn admin-btn-primary flex items-center gap-2" onClick={openLessonMainCreate} disabled={!selectedLesson?.id}>
+                    <Plus size={16} /> Ekle
+                  </button>
+                </div>
+                <div className="lessons-section-body overflow-x-auto">
+                  {lessonMainsLoading ? (
+                    <div className="admin-loading-center py-12"><span className="admin-spinner" /></div>
+                  ) : lessonMains.length === 0 ? (
+                    <div className="admin-empty-state py-10 px-4 text-sm">Henüz ders içeriği yok. Ekle ile ekleyin.</div>
+                  ) : (
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Kod</th>
+                          <th>Ad</th>
+                          <th>Sıra</th>
+                          <th>Durum</th>
+                          <th className="w-24">İşlem</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lessonMains.map((m) => (
+                          <tr
+                            key={m.id}
+                            className={selectedLessonMain?.id === m.id ? "bg-emerald-50/60" : ""}
+                          >
+                            <td><code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">{m.code}</code></td>
+                            <td>
+                              <button type="button" className="font-medium text-slate-800 hover:text-emerald-600 text-left" onClick={() => setSelectedLessonMain(m)}>
+                                {m.name}
+                              </button>
+                            </td>
+                            <td>{m.orderIndex ?? 0}</td>
+                            <td>{m.isActive !== false ? <span className="admin-badge admin-badge-success">Aktif</span> : <span className="admin-badge admin-badge-danger">Pasif</span>}</td>
+                            <td>
+                              <div className="flex items-center gap-1">
+                                <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => openLessonMainEdit(m)} title="Düzenle"><Pencil size={14} /></button>
+                                <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost text-red-600 hover:bg-red-50" onClick={() => openLessonMainDelete(m)} title="Sil"><Trash2 size={14} /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </section>
+
+              {selectedLessonMain && (
+                <section className="lessons-section admin-card rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="lessons-section-header px-5 py-3 flex items-center justify-between bg-slate-50 border-b border-slate-200">
+                    <div className="flex items-center gap-2">
+                      <FolderTree size={20} className="text-slate-600" />
+                      <h3 className="font-semibold text-slate-800">Alt konular (LessonSub)</h3>
+                      <span className="text-slate-500 text-sm">— {selectedLessonMain.name}</span>
+                    </div>
+                    <button type="button" className="admin-btn admin-btn-primary flex items-center gap-2" onClick={openLessonSubCreate}>
+                      <Plus size={16} /> Ekle
+                    </button>
+                  </div>
+                  <div className="lessons-section-body overflow-x-auto">
+                    {lessonSubsLoading ? (
+                      <div className="admin-loading-center py-12"><span className="admin-spinner" /></div>
+                    ) : lessonSubs.length === 0 ? (
+                      <div className="admin-empty-state py-10 px-4 text-sm">Henüz alt konu yok.</div>
+                    ) : (
+                      <table className="admin-table">
+                        <thead>
+                          <tr>
+                            <th>Kod</th>
+                            <th>Ad</th>
+                            <th>Sıra</th>
+                            <th>Durum</th>
+                            <th className="w-24">İşlem</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {lessonSubs.map((s) => (
+                            <tr key={s.id} className={selectedLessonSub?.id === s.id ? "bg-emerald-50/60" : ""}>
+                              <td><code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">{s.code}</code></td>
+                              <td>
+                                <button type="button" className="font-medium text-slate-800 hover:text-emerald-600 text-left" onClick={() => setSelectedLessonSub(s)}>{s.name}</button>
+                              </td>
+                              <td>{s.orderIndex ?? 0}</td>
+                              <td>{s.isActive !== false ? <span className="admin-badge admin-badge-success">Aktif</span> : <span className="admin-badge admin-badge-danger">Pasif</span>}</td>
+                              <td>
+                                <div className="flex items-center gap-1">
+                                  <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => openLessonSubEdit(s)} title="Düzenle"><Pencil size={14} /></button>
+                                  <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost text-red-600 hover:bg-red-50" onClick={() => openLessonSubDelete(s)} title="Sil"><Trash2 size={14} /></button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {selectedLessonSub && (
+                <section className="lessons-section admin-card rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="lessons-section-header px-5 py-3 flex items-center justify-between bg-slate-50 border-b border-slate-200">
+                    <div className="flex items-center gap-2">
+                      <Sparkles size={20} className="text-slate-600" />
+                      <h3 className="font-semibold text-slate-800">Mikro konular (LessonMikro)</h3>
+                      <span className="text-slate-500 text-sm">— {selectedLessonSub.name}</span>
+                    </div>
+                    <button type="button" className="admin-btn admin-btn-primary flex items-center gap-2" onClick={openLessonMikroCreate}>
+                      <Plus size={16} /> Ekle
+                    </button>
+                  </div>
+                  <div className="lessons-section-body overflow-x-auto">
+                    {lessonMikrosLoading ? (
+                      <div className="admin-loading-center py-12"><span className="admin-spinner" /></div>
+                    ) : lessonMikros.length === 0 ? (
+                      <div className="admin-empty-state py-10 px-4 text-sm">Henüz mikro konu yok.</div>
+                    ) : (
+                      <table className="admin-table">
+                        <thead>
+                          <tr>
+                            <th>Kod</th>
+                            <th>Ad</th>
+                            <th>Sıra</th>
+                            <th>Durum</th>
+                            <th className="w-24">İşlem</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {lessonMikros.map((mikro) => (
+                            <tr key={mikro.id}>
+                              <td><code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">{mikro.code}</code></td>
+                              <td className="font-medium">{mikro.name}</td>
+                              <td>{mikro.orderIndex ?? 0}</td>
+                              <td>{mikro.isActive !== false ? <span className="admin-badge admin-badge-success">Aktif</span> : <span className="admin-badge admin-badge-danger">Pasif</span>}</td>
+                              <td>
+                                <div className="flex items-center gap-1">
+                                  <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => openLessonMikroEdit(mikro)} title="Düzenle"><Pencil size={14} /></button>
+                                  <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost text-red-600 hover:bg-red-50" onClick={() => openLessonMikroDelete(mikro)} title="Sil"><Trash2 size={14} /></button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </section>
+              )}
+            </>
+          )}
+        </main>
+      </div>
+
+      {renderModal()}
     </div>
   );
 };

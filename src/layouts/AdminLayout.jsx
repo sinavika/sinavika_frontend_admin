@@ -34,9 +34,9 @@ const AdminLayout = ({ children }) => {
           mobileOpen ? "overflow-hidden" : "",
         ].join(" ")}
       >
-        {/* Üst bar: Header + mobilde hamburger - modern mimari kenarlıklar */}
-        <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-200/80 shadow-sm">
-          <div className="flex items-center gap-2 sm:gap-3 h-14 sm:h-16 pl-5 pr-3 sm:pl-6 sm:pr-4 lg:px-6 relative overflow-hidden">
+        {/* Üst bar: Header + mobilde hamburger — mobil uyumlu yükseklik ve hiyerarşi */}
+        <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-slate-200/80 shadow-sm">
+          <div className="flex items-center gap-2 sm:gap-3 min-h-[56px] sm:min-h-[64px] py-2 pl-2 pr-2 sm:pl-4 sm:pr-4 lg:pl-6 lg:pr-6 relative overflow-hidden">
             {/* Dekoratif sol kenar vurgusu - mimari çizgi */}
             <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-emerald-400 via-emerald-500 to-emerald-600 opacity-90 rounded-r" />
             {/* Mobil: hamburger */}

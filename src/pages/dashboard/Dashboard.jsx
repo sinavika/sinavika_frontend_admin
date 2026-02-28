@@ -11,10 +11,10 @@ import {
   Cell,
   Legend,
 } from "recharts";
-import { Users, ShoppingCart, DollarSign, TrendingUp } from "lucide-react";
+import { Users, ShoppingCart, DollarSign, TrendingUp, LayoutDashboard } from "lucide-react";
 import { motion } from "framer-motion";
 
-const COLORS = ["#00b894", "#fdcb6e", "#0984e3", "#d63031"];
+const COLORS = ["#10b981", "#f59e0b", "#3b82f6", "#6366f1"];
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
@@ -59,72 +59,78 @@ const Dashboard = () => {
   }, []);
 
   return (
-    <div className="p-4 sm:p-6 bg-gray-50 min-h-screen text-[#1b335a]">
-      <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-6 sm:mb-8">Yönetim Paneli</h1>
+    <div className="admin-page-wrapper">
+      <div className="admin-page-header admin-page-header-gradient flex flex-col gap-1 mb-6 sm:mb-8">
+        <h1 className="admin-page-title">
+          <LayoutDashboard size={28} className="text-emerald-600 shrink-0" />
+          Kontrol Paneli
+        </h1>
+        <p className="text-sm text-slate-500">Özet istatistikler ve son aktiviteler.</p>
+      </div>
 
-      {/* Stat Boxes */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-10">
+      {/* Stat Boxes — proje paleti (emerald, amber, slate) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
         {[
           {
             icon: Users,
             label: "Kullanıcılar",
             value: stats.users,
-            color: "bg-blue-100 text-blue-700",
+            color: "bg-emerald-50 text-emerald-700 border border-emerald-100",
           },
           {
             icon: ShoppingCart,
             label: "Siparişler",
             value: stats.orders,
-            color: "bg-orange-100 text-orange-700",
+            color: "bg-amber-50 text-amber-700 border border-amber-100",
           },
           {
             icon: DollarSign,
             label: "Gelir",
             value: "₺" + stats.revenue.toLocaleString(),
-            color: "bg-green-100 text-green-700",
+            color: "bg-slate-50 text-slate-700 border border-slate-200",
           },
           {
             icon: TrendingUp,
             label: "Büyüme",
             value: `%${stats.growth}`,
-            color: "bg-purple-100 text-purple-700",
+            color: "bg-indigo-50 text-indigo-700 border border-indigo-100",
           },
         ].map((item, i) => (
           <motion.div
             key={i}
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.2 }}
-            className={`p-4 sm:p-5 rounded-lg shadow-md flex items-center justify-between gap-2 ${item.color}`}
+            transition={{ delay: i * 0.1 }}
+            className={`admin-card p-4 sm:p-5 rounded-xl flex items-center justify-between gap-3 ${item.color}`}
           >
             <div className="min-w-0 flex-1">
-              <p className="text-xs sm:text-sm font-medium truncate">{item.label}</p>
-              <h3 className="text-base sm:text-xl font-bold truncate">{item.value}</h3>
+              <p className="text-xs sm:text-sm font-medium truncate opacity-90">{item.label}</p>
+              <h3 className="text-lg sm:text-xl font-bold truncate mt-0.5">{item.value}</h3>
             </div>
-            <item.icon size={28} className="shrink-0 sm:w-8 sm:h-8" />
+            <item.icon size={26} className="shrink-0 opacity-80" />
           </motion.div>
         ))}
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8 mb-6 sm:mb-10">
-        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md lg:col-span-2">
-          <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Haftalık Gelir Trend</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        <div className="admin-card p-4 sm:p-6 rounded-xl lg:col-span-2">
+          <h2 className="text-base sm:text-lg font-semibold text-slate-800 mb-4">Haftalık Gelir Trend</h2>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={lineData}>
-              <XAxis dataKey="week" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="revenue" stroke="#00b894" strokeWidth={3} />
+              <XAxis dataKey="week" stroke="#64748b" fontSize={12} />
+              <YAxis stroke="#64748b" fontSize={12} />
+              <Tooltip contentStyle={{ borderRadius: "0.5rem", border: "1px solid #e2e8f0" }} />
+              <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2.5} dot={{ fill: "#10b981" }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
-          <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Satış Dağılımı</h2>
+        <div className="admin-card p-4 sm:p-6 rounded-xl">
+          <h2 className="text-base sm:text-lg font-semibold text-slate-800 mb-4">Satış Dağılımı</h2>
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
-              <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={100} label>
+              <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={90} label>
                 {pieData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
@@ -136,28 +142,28 @@ const Dashboard = () => {
       </div>
 
       {/* Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
-        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md overflow-hidden">
-          <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Son Kullanıcılar</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <div className="admin-card p-4 sm:p-6 rounded-xl overflow-hidden">
+          <h2 className="text-base sm:text-lg font-semibold text-slate-800 mb-4">Son Kullanıcılar</h2>
           <ul className="space-y-3">
             {recentUsers.map((user) => (
-              <li key={user.id} className="border-b pb-2">
-                <p className="font-semibold">{user.name}</p>
-                <p className="text-sm text-gray-500">{user.email}</p>
-                <p className="text-xs text-gray-400">Katıldı: {user.joined}</p>
+              <li key={user.id} className="pb-3 border-b border-slate-100 last:border-0 last:pb-0">
+                <p className="font-medium text-slate-800">{user.name}</p>
+                <p className="text-sm text-slate-500">{user.email}</p>
+                <p className="text-xs text-slate-400 mt-0.5">Katıldı: {user.joined}</p>
               </li>
             ))}
           </ul>
         </div>
 
-        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md overflow-hidden">
-          <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Son Siparişler</h2>
+        <div className="admin-card p-4 sm:p-6 rounded-xl overflow-hidden">
+          <h2 className="text-base sm:text-lg font-semibold text-slate-800 mb-4">Son Siparişler</h2>
           <ul className="space-y-3">
             {recentOrders.map((order) => (
-              <li key={order.id} className="border-b pb-2">
-                <p className="font-semibold">{order.user}</p>
-                <p className="text-sm text-gray-600">Tutar: ₺{order.total}</p>
-                <p className="text-xs text-gray-500">Durum: {order.status}</p>
+              <li key={order.id} className="pb-3 border-b border-slate-100 last:border-0 last:pb-0">
+                <p className="font-medium text-slate-800">{order.user}</p>
+                <p className="text-sm text-slate-600">Tutar: ₺{order.total}</p>
+                <p className="text-xs text-slate-500 mt-0.5">Durum: {order.status}</p>
               </li>
             ))}
           </ul>

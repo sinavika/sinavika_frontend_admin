@@ -1,5 +1,5 @@
 // AdminCategoryFeatureController — api/AdminCategoryFeature
-// Alt kategori sınav özellikleri (1:1 — her alt kategoride en fazla bir kayıt)
+// Doc: docs/Categories/01-Categories-Controllers-Tanitim.md, 02-Categories-API-Endpoints-Detay.md
 import adminApi from "@/api/adminApi";
 
 /**
