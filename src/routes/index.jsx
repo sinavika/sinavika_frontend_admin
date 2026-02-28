@@ -5,6 +5,7 @@ import Dashboard from "@/pages/dashboard/Dashboard";
 import Categories from "@/pages/admin/Categories";
 import Lessons from "@/pages/admin/Lessons";
 import Coupons from "@/pages/admin/Coupons";
+import References from "@/pages/admin/References";
 import SubscriptionPackages from "@/pages/admin/SubscriptionPackages";
 import Publishers from "@/pages/admin/Publishers";
 import Booklets from "@/pages/admin/Booklets";
@@ -27,6 +28,7 @@ const AppRoutes = () => {
             <Route path="admin/exams" element={<Exams />} />
             <Route path="admin/booklets" element={<Booklets />} />
             <Route path="admin/coupons" element={<Coupons />} />
+            <Route path="admin/references" element={<References />} />
             <Route path="admin/subscription-packages" element={<SubscriptionPackages />} />
             <Route path="admin/publishers" element={<Publishers />} />
 

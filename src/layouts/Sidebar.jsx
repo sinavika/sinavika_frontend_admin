@@ -7,6 +7,7 @@ import {
   FileCheck,
   FileText,
   Tag,
+  UserCheck,
   Building2,
   CreditCard,
 } from "lucide-react";
@@ -39,6 +40,7 @@ const menuSections = [
     title: "Pazarlama",
     items: [
       { icon: Tag, label: "Kuponlar", path: "/admin/coupons" },
+      { icon: UserCheck, label: "Referans Sistemi", path: "/admin/references" },
     ],
   },
   {
