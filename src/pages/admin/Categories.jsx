@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FolderTree, Plus, Pencil, Trash2, Image as ImageIcon, Layers, Sliders, LayoutList } from "lucide-react";
+import { FolderTree, Plus, Pencil, Trash2, Image as ImageIcon, Layers, Sliders, LayoutList, Power } from "lucide-react";
 import toast from "react-hot-toast";
 import { getFullImageUrl } from "@/constants";
 import {
@@ -7,12 +7,14 @@ import {
   createCategory,
   updateCategoryName,
   updateCategoryImage,
+  setCategoryActive,
   deleteCategory,
 } from "@/services/adminCategoryService";
 import {
   getSubsByCategoryId,
   createSub,
   updateSub,
+  setCategorySubActive,
   deleteSub,
 } from "@/services/adminCategorySubService";
 import {
@@ -44,6 +46,9 @@ const Categories = () => {
 
   // Alt kategori yönetimi
   const [categoryForSubs, setCategoryForSubs] = useState(null);
+  const [togglingCategoryId, setTogglingCategoryId] = useState(null);
+  const [togglingSubId, setTogglingSubId] = useState(null);
+
   const [subList, setSubList] = useState([]);
   const [subListLoading, setSubListLoading] = useState(false);
   const [subModal, setSubModal] = useState(null); // "list" | "create" | "edit" | "delete" | null
@@ -503,6 +508,34 @@ const Categories = () => {
     }
   };
 
+  const handleToggleCategoryActive = async (cat) => {
+    if (!cat?.id) return;
+    setTogglingCategoryId(cat.id);
+    try {
+      await setCategoryActive(cat.id, !cat.isActive);
+      toast.success(cat.isActive ? "Kategori pasif yapıldı." : "Kategori aktif yapıldı.");
+      await loadCategories();
+    } catch (err) {
+      toast.error(err.message || "Durum güncellenemedi.");
+    } finally {
+      setTogglingCategoryId(null);
+    }
+  };
+
+  const handleToggleSubActive = async (sub) => {
+    if (!sub?.id || !categoryForSubs?.id) return;
+    setTogglingSubId(sub.id);
+    try {
+      await setCategorySubActive(sub.id, !sub.isActive);
+      toast.success(sub.isActive ? "Alt kategori pasif yapıldı." : "Alt kategori aktif yapıldı.");
+      await loadSubs(categoryForSubs.id);
+    } catch (err) {
+      toast.error(err.message || "Durum güncellenemedi.");
+    } finally {
+      setTogglingSubId(null);
+    }
+  };
+
   return (
     <div className="admin-page-wrapper">
       <div className="admin-page-header admin-page-header-gradient flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -575,6 +608,19 @@ const Categories = () => {
                     <td className="text-slate-500">{formatDate(cat.createdAt)}</td>
                     <td className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleCategoryActive(cat)}
+                          disabled={togglingCategoryId === cat.id}
+                          className={`admin-btn admin-btn-ghost admin-btn-icon ${cat.isActive ? "text-amber-600 hover:bg-amber-50" : "text-emerald-600 hover:bg-emerald-50"}`}
+                          title={cat.isActive ? "Pasif yap" : "Aktif yap"}
+                        >
+                          {togglingCategoryId === cat.id ? (
+                            <span className="admin-spinner w-4 h-4 border-2" />
+                          ) : (
+                            <Power size={18} />
+                          )}
+                        </button>
                         <button
                           type="button"
                           onClick={() => openSubList(cat)}
@@ -835,6 +881,19 @@ const Categories = () => {
                           <td className="text-slate-500">{formatDate(sub.createdAt)}</td>
                           <td className="text-right">
                             <div className="admin-exam-actions">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleSubActive(sub)}
+                                disabled={togglingSubId === sub.id}
+                                className={`admin-btn admin-btn-ghost admin-btn-icon ${sub.isActive ? "text-amber-600 hover:bg-amber-50" : "text-emerald-600 hover:bg-emerald-50"}`}
+                                title={sub.isActive ? "Pasif yap" : "Aktif yap"}
+                              >
+                                {togglingSubId === sub.id ? (
+                                  <span className="admin-spinner w-4 h-4 border-2" />
+                                ) : (
+                                  <Power size={16} />
+                                )}
+                              </button>
                               <button type="button" onClick={() => openFeatureModal(sub)} className="admin-btn admin-btn-ghost admin-btn-icon" title="Sınav özelliği">
                                 <Sliders size={16} />
                               </button>

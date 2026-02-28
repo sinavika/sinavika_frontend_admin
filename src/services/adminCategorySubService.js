@@ -48,6 +48,18 @@ export const updateSub = async (id, data) => {
 };
 
 /**
+ * Alt kategori aktif/pasif yap. PUT /AdminCategorySub/set-active?id={id}
+ * @param {string} id Alt kategori id (Guid)
+ * @param {boolean} isActive true = aktif, false = pasif
+ */
+export const setCategorySubActive = async (id, isActive) => {
+  const response = await adminApi.put("/AdminCategorySub/set-active", { isActive }, {
+    params: { id },
+  });
+  return response.data;
+};
+
+/**
  * Alt kategori sil. DELETE /AdminCategorySub/delete?id={id}
  * @param {string} id Alt kategori id (Guid)
  */
