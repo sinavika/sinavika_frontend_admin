@@ -100,8 +100,8 @@ export const getBookletByCode = async (code) => {
 };
 
 /**
- * Slota soru ekle. POST /api/AdminQuestionBooklet/slot/{slotId}/question
- * AddQuestionToBookletDto: PublisherId kaldırıldı (yayınevi kitapçıkta tanımlı). stem, options, correctOptionKey, lessonSubId?
+ * Slota soru ekle (JSON). POST /api/AdminQuestionBooklet/slot/{slotId}/question
+ * AddQuestionToBookletDto: stem, stemImageUrl?, options (optionKey, text, imageUrl?, orderIndex), correctOptionKey, lessonSubId?
  */
 export const addQuestionToSlot = async (slotId, data) => {
   const body = {
@@ -109,30 +109,58 @@ export const addQuestionToSlot = async (slotId, data) => {
     options: (data.options || []).map((o) => ({
       optionKey: o.optionKey ?? "A",
       text: (o.text ?? "").toString().trim(),
+      imageUrl: o.imageUrl || null,
       orderIndex: Number(o.orderIndex) ?? 0,
     })),
     correctOptionKey: data.correctOptionKey ?? "A",
   };
+  if (data.stemImageUrl) body.stemImageUrl = data.stemImageUrl;
   if (data.lessonSubId != null && data.lessonSubId !== "") body.lessonSubId = data.lessonSubId;
   const response = await adminApi.post(`/AdminQuestionBooklet/slot/${slotId}/question`, body);
   return response.data;
 };
 
 /**
- * Slottaki soruyu güncelle. PUT /api/AdminQuestionBooklet/slot/{slotId}/question
- * UpdateQuestionInBookletDto: PublisherId kaldırıldı. stem?, options?, correctOptionKey?, lessonSubId? (hepsi opsiyonel)
+ * Slota soru + görsel ekle (multipart). POST /api/AdminQuestionBooklet/slot/{slotId}/question/with-images
+ * FormData: data (JSON string), stemImage (file), optionImageA..optionImageE (file). JPEG, PNG, GIF, WebP.
+ */
+export const addQuestionToSlotWithImages = async (slotId, formData) => {
+  const response = await adminApi.post(
+    `/AdminQuestionBooklet/slot/${slotId}/question/with-images`,
+    formData
+  );
+  return response.data;
+};
+
+/**
+ * Slottaki soruyu güncelle (JSON). PUT /api/AdminQuestionBooklet/slot/{slotId}/question
+ * UpdateQuestionInBookletDto: stem?, stemImageUrl?, options?, correctOptionKey?, lessonSubId? (hepsi opsiyonel)
  */
 export const updateQuestionInSlot = async (slotId, data) => {
   const body = {};
   if (data.stem != null) body.stem = data.stem.trim();
+  if (data.stemImageUrl != null) body.stemImageUrl = data.stemImageUrl || null;
   if (data.options != null) body.options = data.options.map((o) => ({
     optionKey: o.optionKey ?? "A",
     text: (o.text ?? "").toString().trim(),
+    imageUrl: o.imageUrl || null,
     orderIndex: Number(o.orderIndex) ?? 0,
   }));
   if (data.correctOptionKey != null) body.correctOptionKey = data.correctOptionKey;
   if (data.lessonSubId != null) body.lessonSubId = data.lessonSubId === "" ? null : data.lessonSubId;
   const response = await adminApi.put(`/AdminQuestionBooklet/slot/${slotId}/question`, body);
+  return response.data;
+};
+
+/**
+ * Slottaki soruyu + görsel güncelle (multipart). PUT /api/AdminQuestionBooklet/slot/{slotId}/question/with-images
+ * FormData: data (JSON string), stemImage (file), optionImageA..optionImageE (file).
+ */
+export const updateQuestionInSlotWithImages = async (slotId, formData) => {
+  const response = await adminApi.put(
+    `/AdminQuestionBooklet/slot/${slotId}/question/with-images`,
+    formData
+  );
   return response.data;
 };
 

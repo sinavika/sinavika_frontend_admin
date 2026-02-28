@@ -25,7 +25,9 @@ import {
   createSlotsForSection,
   createSlotsForFeature,
   addQuestionToSlot,
+  addQuestionToSlotWithImages,
   updateQuestionInSlot,
+  updateQuestionInSlotWithImages,
   removeQuestionFromSlot,
   setBookletStatus,
   deleteBooklet,
@@ -34,7 +36,7 @@ import { getAllLessons } from "@/services/adminLessonService";
 import { getLessonMainsByLessonId } from "@/services/adminLessonMainService";
 import { getLessonSubsByLessonMainId } from "@/services/adminLessonSubService";
 import { getAllPublishers } from "@/services/adminPublisherService";
-import { ERROR_MESSAGES, SUCCESS_MESSAGES } from "@/constants";
+import { ERROR_MESSAGES, SUCCESS_MESSAGES, getFullImageUrl } from "@/constants";
 
 const getApiError = (err) =>
   err.response?.data?.Error ||
@@ -54,9 +56,17 @@ const BOOKLET_STATUS_LABELS = {
 
 const defaultQuestionForm = () => ({
   stem: "",
+  stemImageUrl: "",
+  stemImageFile: null,
+  optionImageA: null,
+  optionImageB: null,
+  optionImageC: null,
+  optionImageD: null,
+  optionImageE: null,
   options: OPTION_KEYS.slice(0, 4).map((key, i) => ({
     optionKey: key,
     text: "",
+    imageUrl: "",
     orderIndex: i + 1,
   })),
   correctOptionKey: "A",
@@ -335,22 +345,33 @@ const Booklets = () => {
   const openEditQuestion = (slot) => {
     loadLessonSubsAndPublishers();
     const stem = slot.stem ?? "";
-    let options = (slot.options || []).map((o, i) => ({
+    const rawOptions = Array.isArray(slot.options)
+      ? slot.options
+      : (typeof slot.optionsJson === "string" ? (() => { try { return JSON.parse(slot.optionsJson) || []; } catch { return []; } })() : []);
+    let options = rawOptions.map((o, i) => ({
       optionKey: o.optionKey ?? OPTION_KEYS[i] ?? "A",
       text: o.text ?? "",
+      imageUrl: o.imageUrl ?? "",
       orderIndex: o.orderIndex ?? i + 1,
     }));
     const correctOptionKey = slot.correctOptionKey ?? "A";
     const lessonSubId = slot.lessonSubId ?? "";
     if (options.length === 0) {
       OPTION_KEYS.slice(0, 4).forEach((key, i) => {
-        options.push({ optionKey: key, text: "", orderIndex: i + 1 });
+        options.push({ optionKey: key, text: "", imageUrl: "", orderIndex: i + 1 });
       });
     }
     setForm({
       slotId: slot.id,
       slotOrderIndex: slot.orderIndex,
       stem,
+      stemImageUrl: slot.stemImageUrl ?? "",
+      stemImageFile: null,
+      optionImageA: null,
+      optionImageB: null,
+      optionImageC: null,
+      optionImageD: null,
+      optionImageE: null,
       options,
       correctOptionKey,
       lessonSubId,
@@ -364,6 +385,26 @@ const Booklets = () => {
       stem: slot.stem || `Soru #${slot.orderIndex}`,
     });
     setModal("remove-question");
+  };
+
+  const hasAnyQuestionImageFile = () =>
+    form.stemImageFile ||
+    form.optionImageA ||
+    form.optionImageB ||
+    form.optionImageC ||
+    form.optionImageD ||
+    form.optionImageE;
+
+  const buildQuestionFormData = (payload) => {
+    const fd = new FormData();
+    fd.append("data", JSON.stringify(payload));
+    if (form.stemImageFile) fd.append("stemImage", form.stemImageFile);
+    if (form.optionImageA) fd.append("optionImageA", form.optionImageA);
+    if (form.optionImageB) fd.append("optionImageB", form.optionImageB);
+    if (form.optionImageC) fd.append("optionImageC", form.optionImageC);
+    if (form.optionImageD) fd.append("optionImageD", form.optionImageD);
+    if (form.optionImageE) fd.append("optionImageE", form.optionImageE);
+    return fd;
   };
 
   const handleAddQuestion = async (e) => {
@@ -381,14 +422,31 @@ const Booklets = () => {
       toast.error("Doğru cevap seçin.");
       return;
     }
+    const payload = {
+      stem: form.stem.trim(),
+      options: options.map((o) => ({ optionKey: o.optionKey, text: (o.text ?? "").toString().trim(), orderIndex: Number(o.orderIndex) ?? 0 })),
+      correctOptionKey: form.correctOptionKey,
+      lessonSubId: form.lessonSubId || undefined,
+    };
     setSubmitting(true);
     try {
-      await addQuestionToSlot(form.slotId, {
-        stem: form.stem.trim(),
-        options,
-        correctOptionKey: form.correctOptionKey,
-        lessonSubId: form.lessonSubId || undefined,
-      });
+      if (hasAnyQuestionImageFile()) {
+        const formData = buildQuestionFormData(payload);
+        await addQuestionToSlotWithImages(form.slotId, formData);
+      } else {
+        await addQuestionToSlot(form.slotId, {
+          stem: payload.stem,
+          stemImageUrl: form.stemImageUrl?.trim() || undefined,
+          options: options.map((o) => ({
+            optionKey: o.optionKey,
+            text: (o.text ?? "").toString().trim(),
+            imageUrl: o.imageUrl?.trim() || undefined,
+            orderIndex: Number(o.orderIndex) ?? 0,
+          })),
+          correctOptionKey: payload.correctOptionKey,
+          lessonSubId: payload.lessonSubId,
+        });
+      }
       toast.success("Soru eklendi.");
       setModal(null);
       loadBookletDetail(selectedBooklet?.id);
@@ -407,14 +465,31 @@ const Booklets = () => {
       toast.error("En az 2 şık girin.");
       return;
     }
+    const payload = {
+      stem: form.stem?.trim(),
+      options: options.map((o) => ({ optionKey: o.optionKey, text: (o.text ?? "").toString().trim(), orderIndex: Number(o.orderIndex) ?? 0 })),
+      correctOptionKey: form.correctOptionKey,
+      lessonSubId: form.lessonSubId || undefined,
+    };
     setSubmitting(true);
     try {
-      await updateQuestionInSlot(form.slotId, {
-        stem: form.stem?.trim(),
-        options,
-        correctOptionKey: form.correctOptionKey,
-        lessonSubId: form.lessonSubId || undefined,
-      });
+      if (hasAnyQuestionImageFile()) {
+        const formData = buildQuestionFormData(payload);
+        await updateQuestionInSlotWithImages(form.slotId, formData);
+      } else {
+        await updateQuestionInSlot(form.slotId, {
+          stem: payload.stem,
+          stemImageUrl: form.stemImageUrl?.trim() || undefined,
+          options: options.map((o) => ({
+            optionKey: o.optionKey,
+            text: o.text.trim(),
+            imageUrl: o.imageUrl?.trim() || undefined,
+            orderIndex: Number(o.orderIndex) ?? 0,
+          })),
+          correctOptionKey: payload.correctOptionKey,
+          lessonSubId: payload.lessonSubId,
+        });
+      }
       toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
       setModal(null);
       loadBookletDetail(selectedBooklet?.id);
@@ -638,14 +713,37 @@ const Booklets = () => {
                   />
                 </div>
                 <div className="admin-form-group">
+                  <label className="admin-label">Soru görseli (opsiyonel)</label>
+                  <p className="text-xs text-slate-500 mb-1">JPEG, PNG, GIF veya WebP. Dosya seçerseniz sunucuya yüklenir; URL ise JSON ile kullanılır.</p>
+                  <div className="space-y-2">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      className="admin-input text-sm"
+                      onChange={(e) => setForm((f) => ({ ...f, stemImageFile: e.target.files?.[0] || null }))}
+                    />
+                    {form.stemImageFile && <span className="text-xs text-slate-500">{form.stemImageFile.name}</span>}
+                    <input
+                      type="text"
+                      className="admin-input"
+                      value={form.stemImageUrl ?? ""}
+                      onChange={(e) => setForm((f) => ({ ...f, stemImageUrl: e.target.value }))}
+                      placeholder="Veya soru görseli URL (JSON ile gönderim)"
+                    />
+                    {form.stemImageUrl && !form.stemImageFile && (
+                      <img src={getFullImageUrl(form.stemImageUrl)} alt="" className="w-20 h-20 object-cover rounded border border-slate-200" onError={(e) => { e.target.style.display = "none"; }} />
+                    )}
+                  </div>
+                </div>
+                <div className="admin-form-group">
                   <label className="admin-label admin-label-required">Şıklar</label>
                   <div className="space-y-2">
                     {(form.options || []).map((opt, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
+                      <div key={idx} className="flex flex-wrap items-center gap-2 border border-slate-100 rounded-lg p-2">
                         <span className="w-6 font-mono text-slate-500">{opt.optionKey}</span>
                         <input
                           type="text"
-                          className="admin-input flex-1"
+                          className="admin-input flex-1 min-w-[120px]"
                           value={opt.text ?? ""}
                           onChange={(e) => {
                             const opts = [...(form.options || [])];
@@ -654,6 +752,26 @@ const Booklets = () => {
                           }}
                           placeholder={`Şık ${opt.optionKey}`}
                         />
+                        <input
+                          type="text"
+                          className="admin-input w-40 text-sm"
+                          value={opt.imageUrl ?? ""}
+                          onChange={(e) => {
+                            const opts = [...(form.options || [])];
+                            opts[idx] = { ...opts[idx], imageUrl: e.target.value };
+                            setForm((f) => ({ ...f, options: opts }));
+                          }}
+                          placeholder="Görsel URL"
+                        />
+                        <label className="flex items-center gap-1 text-xs text-slate-500 whitespace-nowrap">
+                          Görsel:
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/gif,image/webp"
+                            className="text-sm"
+                            onChange={(e) => setForm((f) => ({ ...f, [`optionImage${opt.optionKey}`]: e.target.files?.[0] || null }))}
+                          />
+                        </label>
                       </div>
                     ))}
                   </div>
@@ -931,7 +1049,12 @@ const Booklets = () => {
                               <td className="font-mono text-slate-600">{slot.orderIndex ?? 0}</td>
                               <td className="max-w-md">
                                 {slot.questionId ? (
-                                  <span className="text-slate-800 truncate block" title={slot.stem}>{slot.stem || slot.questionCode || "—"}</span>
+                                  <div className="flex items-center gap-2">
+                                    {slot.stemImageUrl && (
+                                      <img src={getFullImageUrl(slot.stemImageUrl)} alt="" className="w-10 h-10 object-cover rounded border border-slate-200" />
+                                    )}
+                                    <span className="text-slate-800 truncate flex-1" title={slot.stem}>{slot.stem || slot.questionCode || "—"}</span>
+                                  </div>
                                 ) : (
                                   <span className="text-slate-400 italic">Boş slot</span>
                                 )}
