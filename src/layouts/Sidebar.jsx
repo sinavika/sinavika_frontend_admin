@@ -8,7 +8,6 @@ import {
   FileText,
   Tag,
   Building2,
-  Users,
   CreditCard,
 } from "lucide-react";
 import SinarikaLogo from "@/components/ui/SinarikaLogo";
@@ -40,7 +39,6 @@ const menuSections = [
     title: "Pazarlama",
     items: [
       { icon: Tag, label: "Kuponlar", path: "/admin/coupons" },
-      { icon: Users, label: "Referral Kampanyaları", path: "/admin/referral-campaigns" },
     ],
   },
   {
