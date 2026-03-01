@@ -62,6 +62,19 @@ export const updateCategoryImage = async (id, file) => {
 };
 
 /**
+ * Kategori aktif/pasif yap. PUT /AdminCategory/set-active?id={id}
+ * Pasif yapılırsa alt kategoriler de pasif olur.
+ * @param {string} id Kategori id (Guid)
+ * @param {boolean} isActive true = aktif, false = pasif
+ */
+export const setCategoryActive = async (id, isActive) => {
+  const response = await adminApi.put("/AdminCategory/set-active", { isActive }, {
+    params: { id },
+  });
+  return response.data;
+};
+
+/**
  * Kategori sil. DELETE /AdminCategory/delete?id={id}
  * @param {string} id Kategori id (Guid)
  */
