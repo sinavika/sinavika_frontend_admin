@@ -63,8 +63,6 @@ const Categories = () => {
     defaultQuestionCount: 40,
     defaultDurationMinutes: 120,
     defaultQuestionOptionCount: 5,
-    usesNegativeMarking: false,
-    negativeMarkingRule: "",
   });
   const [featureLoading, setFeatureLoading] = useState(false);
   const [featureSubmitting, setFeatureSubmitting] = useState(false);
@@ -221,7 +219,7 @@ const Categories = () => {
     setFeatureSub(sub);
     setFeatureLoading(true);
     setFeatureData(null);
-    setFeatureForm({ defaultQuestionCount: 40, defaultDurationMinutes: 120, defaultQuestionOptionCount: 5, usesNegativeMarking: false, negativeMarkingRule: "" });
+    setFeatureForm({ defaultQuestionCount: 40, defaultDurationMinutes: 120, defaultQuestionOptionCount: 5 });
     try {
       const data = await getFeatureBySubId(sub.id);
       setFeatureData(data);
@@ -229,8 +227,6 @@ const Categories = () => {
         defaultQuestionCount: data.defaultQuestionCount ?? 40,
         defaultDurationMinutes: data.defaultDurationMinutes ?? 120,
         defaultQuestionOptionCount: data.defaultQuestionOptionCount ?? 5,
-        usesNegativeMarking: data.usesNegativeMarking === true,
-        negativeMarkingRule: data.negativeMarkingRule ?? "",
       });
     } catch {
       setFeatureData(null);
@@ -1059,18 +1055,6 @@ const Categories = () => {
                       <input type="number" className="admin-input" min={2} value={featureForm.defaultQuestionOptionCount} onChange={(e) => setFeatureForm((f) => ({ ...f, defaultQuestionOptionCount: e.target.value }))} />
                     </div>
                   </div>
-                  <div className="admin-form-row admin-form-row-2">
-                    <div className="admin-form-group">
-                      <label className="admin-label">Negatif puanlama kuralı</label>
-                      <input type="text" className="admin-input" placeholder="4W1R" value={featureForm.negativeMarkingRule} onChange={(e) => setFeatureForm((f) => ({ ...f, negativeMarkingRule: e.target.value }))} />
-                    </div>
-                    <div className="admin-form-group flex items-end">
-                      <label className="flex items-center gap-2">
-                        <input type="checkbox" checked={featureForm.usesNegativeMarking} onChange={(e) => setFeatureForm((f) => ({ ...f, usesNegativeMarking: e.target.checked }))} className="rounded border-slate-300 text-emerald-600" />
-                        Negatif puanlama kullan
-                      </label>
-                    </div>
-                  </div>
                   <div className="admin-modal-footer border-t pt-4 mt-4">
                     <button type="button" onClick={handleFeatureDelete} disabled={featureSubmitting} className="admin-btn admin-btn-ghost text-red-600">Sil</button>
                     <div className="flex gap-2 ml-auto">
@@ -1094,18 +1078,6 @@ const Categories = () => {
                     <div className="admin-form-group">
                       <label className="admin-label">Şık sayısı</label>
                       <input type="number" className="admin-input" min={2} value={featureForm.defaultQuestionOptionCount} onChange={(e) => setFeatureForm((f) => ({ ...f, defaultQuestionOptionCount: e.target.value }))} />
-                    </div>
-                  </div>
-                  <div className="admin-form-row admin-form-row-2">
-                    <div className="admin-form-group">
-                      <label className="admin-label">Negatif puanlama kuralı</label>
-                      <input type="text" className="admin-input" placeholder="4W1R" value={featureForm.negativeMarkingRule} onChange={(e) => setFeatureForm((f) => ({ ...f, negativeMarkingRule: e.target.value }))} />
-                    </div>
-                    <div className="admin-form-group flex items-end">
-                      <label className="flex items-center gap-2">
-                        <input type="checkbox" checked={featureForm.usesNegativeMarking} onChange={(e) => setFeatureForm((f) => ({ ...f, usesNegativeMarking: e.target.checked }))} className="rounded border-slate-300 text-emerald-600" />
-                        Negatif puanlama kullan
-                      </label>
                     </div>
                   </div>
                   <div className="admin-modal-footer border-t pt-4 mt-4">

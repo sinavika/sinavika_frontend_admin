@@ -28,7 +28,7 @@ export const getFeatureBySubId = async (categorySubId) => {
 
 /**
  * Kategori özelliği oluştur. POST /AdminCategoryFeature/create
- * Body: categorySubId (Guid), defaultQuestionCount?, defaultDurationMinutes?, defaultQuestionOptionCount?, usesNegativeMarking? (varsayılan false), negativeMarkingRule?
+ * Body: categorySubId (Guid), defaultQuestionCount?, defaultDurationMinutes?, defaultQuestionOptionCount?
  */
 export const createCategoryFeature = async (data) => {
   const response = await adminApi.post("/AdminCategoryFeature/create", {
@@ -36,8 +36,6 @@ export const createCategoryFeature = async (data) => {
     defaultQuestionCount: data.defaultQuestionCount ?? 40,
     defaultDurationMinutes: data.defaultDurationMinutes ?? 120,
     defaultQuestionOptionCount: data.defaultQuestionOptionCount ?? 5,
-    usesNegativeMarking: data.usesNegativeMarking === true,
-    negativeMarkingRule: data.negativeMarkingRule ?? null,
   });
   return response.data;
 };
