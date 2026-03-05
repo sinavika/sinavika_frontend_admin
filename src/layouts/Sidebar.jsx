@@ -11,6 +11,7 @@ import {
   UserCheck,
   Building2,
   CreditCard,
+  Users,
 } from "lucide-react";
 import SinarikaLogo from "@/components/ui/SinarikaLogo";
 import { useState } from "react";
@@ -50,6 +51,12 @@ const menuSections = [
     items: [
       { icon: CreditCard, label: "Abonelik Paketleri", path: "/admin/subscription-packages" },
       { icon: Building2, label: "Yayınevleri", path: "/admin/publishers" },
+    ],
+  },
+  {
+    title: "Kullanıcı Yönetimi",
+    items: [
+      { icon: Users, label: "Öğrenci Yönetimi", path: "/admin/students" },
     ],
   },
 ];

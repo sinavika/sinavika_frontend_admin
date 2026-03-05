@@ -11,6 +11,7 @@ import Publishers from "@/pages/admin/Publishers";
 import Booklets from "@/pages/admin/Booklets";
 import Exams from "@/pages/admin/Exams";
 import Score from "@/pages/admin/Score";
+import Students from "@/pages/admin/Students";
 import AdminRouteWrapper from "@/components/AdminRouteWrapper";
 
 const AppRoutes = () => {
@@ -26,6 +27,7 @@ const AppRoutes = () => {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="admin/categories" element={<Categories />} />
             <Route path="admin/score" element={<Score />} />
+            <Route path="admin/students" element={<Students />} />
             <Route path="admin/lessons" element={<Lessons />} />
             <Route path="admin/exams" element={<Exams />} />
             <Route path="admin/booklets" element={<Booklets />} />

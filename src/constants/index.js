@@ -88,6 +88,7 @@ export const ROUTES = {
   PRODUCTS: "/admin/products",
   CATEGORIES: "/admin/categories",
   SCORE: "/admin/score",
+  STUDENTS: "/admin/students",
   STORES: "/admin/stores",
   COMPANIES: "/admin/companies",
   PAYMENTS: "/admin/payments",
