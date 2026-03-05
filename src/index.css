@@ -548,4 +548,124 @@
   .score-modal-body .admin-form-group:last-of-type {
     margin-bottom: 0;
   }
+
+  /* ——— Skorlar (Sonuç Hesaplama) sekmesi ——— */
+  .score-scoring-intro {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem 1.25rem;
+    background: linear-gradient(135deg, rgb(239 246 255) 0%, rgb(241 245 253) 100%);
+    border: 1px solid rgb(191 219 254);
+    border-radius: 0.75rem;
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    color: rgb(30 41 59);
+  }
+  .score-scoring-intro-icon {
+    flex-shrink: 0;
+    margin-top: 0.125rem;
+    color: rgb(59 130 246);
+  }
+  .score-scoring-intro strong {
+    color: rgb(29 78 216);
+  }
+  .score-scoring-loading {
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 3rem 2rem;
+  }
+  .score-scoring-loading-text {
+    font-size: 0.875rem;
+    color: rgb(100 116 139);
+  }
+  .score-scoring-empty {
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+  }
+  .score-scoring-card {
+    overflow: hidden;
+  }
+  .score-scoring-card-header {
+    padding: 1rem 1.25rem;
+    background: linear-gradient(to right, rgb(248 250 252), rgb(241 245 249));
+    border-bottom: 1px solid rgb(226 232 240);
+  }
+  .score-scoring-card-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: rgb(30 41 59);
+  }
+  .score-scoring-table thead th {
+    background: linear-gradient(to right, rgb(248 250 252), rgb(241 245 249));
+  }
+  .score-scoring-actions-col {
+    min-width: 280px;
+  }
+  .score-scoring-row:hover {
+    background: rgb(236 253 245 / 0.4);
+  }
+  .score-scoring-exam-title {
+    max-width: 320px;
+  }
+  .score-scoring-status-badge {
+    font-size: 0.75rem;
+  }
+  .score-scoring-status-badge--closed {
+    background: rgb(226 232 240);
+    color: rgb(71 85 105);
+  }
+  .score-scoring-status-badge--ended {
+    background: rgb(209 250 229);
+    color: rgb(6 95 70);
+  }
+  .score-scoring-status-badge--archived {
+    background: rgb(254 243 199);
+    color: rgb(146 64 14);
+  }
+  .score-scoring-row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+  .score-scoring-btn {
+    min-height: 36px;
+    font-size: 0.8125rem;
+  }
+  .score-scoring-btn-results {
+    background: rgb(16 185 129);
+    color: white;
+  }
+  .score-scoring-btn-results:hover:not(:disabled) {
+    background: rgb(5 150 105);
+  }
+  .score-scoring-btn-ranking {
+    border-color: rgb(148 163 184);
+    color: rgb(51 65 85);
+  }
+  .score-scoring-btn-ranking:hover:not(:disabled) {
+    background: rgb(241 245 249);
+  }
+  .score-scoring-btn-spinner {
+    animation: admin-spin 0.7s linear infinite;
+  }
+  .score-scoring-modal .admin-modal-header {
+    border-bottom-color: rgb(226 232 240);
+  }
+  .score-scoring-modal-header {
+    font-size: 1.125rem;
+  }
+  .score-scoring-modal-text {
+    margin: 0;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: rgb(51 65 85);
+  }
+  .score-scoring-modal-btn-confirm {
+    min-width: 140px;
+  }
 }

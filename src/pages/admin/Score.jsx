@@ -7,6 +7,9 @@ import {
   Layers,
   Scale,
   Weight,
+  FileCheck,
+  BarChart3,
+  Loader2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -33,6 +36,11 @@ import {
 import { getAllCategories } from "@/services/adminCategoryService";
 import { getSubsByCategoryId } from "@/services/adminCategorySubService";
 import { getAllCategorySections } from "@/services/adminCategorySectionService";
+import {
+  getExamsEligibleForScoring,
+  calculateExamResults,
+  calculateExamRanking,
+} from "@/services/adminScoringService";
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from "@/constants";
 import { formatDateShort } from "@/utils/format";
 
@@ -46,7 +54,14 @@ const TABS = [
   { id: "profiles", label: "Puanlama Profilleri", icon: Layers },
   { id: "types", label: "Puan Türleri", icon: Scale },
   { id: "weights", label: "Puan Türü Ağırlıkları", icon: Weight },
+  { id: "scoring", label: "Skorlar (Sonuç Hesaplama)", icon: FileCheck },
 ];
+
+const EXAM_STATUS_LABELS = {
+  4: "Kapalı",
+  5: "Bitti",
+  6: "Arşivlendi",
+};
 
 const INPUT_TYPES = [
   { value: 0, label: "Net" },
@@ -83,6 +98,10 @@ const Score = () => {
   const [submitting, setSubmitting] = useState(false);
   const [createModalCategoryId, setCreateModalCategoryId] = useState("");
   const [allScoreTypesForWeights, setAllScoreTypesForWeights] = useState([]);
+  // Skorlar sekmesi: hesaplamaya uygun sınavlar ve işlem durumu
+  const [eligibleExams, setEligibleExams] = useState([]);
+  const [loadingScoring, setLoadingScoring] = useState(false);
+  const [scoringAction, setScoringAction] = useState(null); // { examId, examTitle, type: 'results' | 'ranking' }
 
   // Form state — Profil
   const [formProfile, setFormProfile] = useState({
@@ -183,6 +202,19 @@ const Score = () => {
     }
   }, [filterScoreTypeId]);
 
+  const loadEligibleExams = useCallback(async () => {
+    setLoadingScoring(true);
+    try {
+      const data = await getExamsEligibleForScoring();
+      setEligibleExams(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error(getApiError(err));
+      setEligibleExams([]);
+    } finally {
+      setLoadingScoring(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadCategories();
     loadSections();
@@ -199,6 +231,10 @@ const Score = () => {
   useEffect(() => {
     if (activeTab === "weights") loadWeights();
   }, [activeTab, loadWeights]);
+
+  useEffect(() => {
+    if (activeTab === "scoring") loadEligibleExams();
+  }, [activeTab, loadEligibleExams]);
 
   // Types sekmesinde tüm profilleri dropdown için yükle
   useEffect(() => {
@@ -233,7 +269,8 @@ const Score = () => {
   const refreshCurrentTab = () => {
     if (activeTab === "profiles") loadProfiles();
     else if (activeTab === "types") loadScoreTypes();
-    else loadWeights();
+    else if (activeTab === "weights") loadWeights();
+    else if (activeTab === "scoring") loadEligibleExams();
   };
 
   // ——— Profil CRUD ———
@@ -583,6 +620,53 @@ const Score = () => {
   const inputTypeLabel = (val) =>
     INPUT_TYPES.find((x) => x.value === val)?.label ?? val;
 
+  const examStatusLabel = (status) =>
+    EXAM_STATUS_LABELS[status] ?? `Durum ${status}`;
+
+  // ——— Skorlar: Sonuç hesaplama / Sıralama onay modalları ———
+  const openConfirmCalculateResults = (exam) => {
+    setSelected(exam);
+    setModal("confirmCalculateResults");
+  };
+
+  const openConfirmCalculateRanking = (exam) => {
+    setSelected(exam);
+    setModal("confirmCalculateRanking");
+  };
+
+  const handleCalculateResults = async () => {
+    if (!selected) return;
+    setScoringAction({ examId: selected.id, examTitle: selected.title, type: "results" });
+    setModal(null);
+    try {
+      await calculateExamResults(selected.id);
+      toast.success("Sınav sonuçları başarıyla hesaplandı ve kaydedildi.");
+      loadEligibleExams();
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setScoringAction(null);
+    }
+  };
+
+  const handleCalculateRanking = async () => {
+    if (!selected) return;
+    setScoringAction({ examId: selected.id, examTitle: selected.title, type: "ranking" });
+    setModal(null);
+    try {
+      await calculateExamRanking(selected.id);
+      toast.success("Sıralama başarıyla oluşturuldu.");
+      loadEligibleExams();
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setScoringAction(null);
+    }
+  };
+
+  const isScoringAction = (examId, type) =>
+    scoringAction?.examId === examId && scoringAction?.type === type;
+
   return (
     <div className="admin-page-wrapper score-page">
       <div className="admin-page-header score-page-header">
@@ -904,6 +988,110 @@ const Score = () => {
                               title="Sil"
                             >
                               <Trash2 size={18} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ——— Sekme: Skorlar (Sonuç Hesaplama) ——— */}
+      {activeTab === "scoring" && (
+        <>
+          <div className="score-scoring-intro">
+            <BarChart3 size={20} className="score-scoring-intro-icon" />
+            <p>
+              Kapalı, bitmiş veya arşivlenmiş sınavlar için önce <strong>Sonuç Hesapla</strong> ile
+              net, standart net ve puanları hesaplatın; ardından <strong>Sıralama Oluştur</strong> ile
+              sıra ve yüzdelik bilgilerini oluşturun. Her işlem sınav başına yalnızca bir kez çalıştırılmalıdır.
+            </p>
+          </div>
+
+          {loadingScoring ? (
+            <div className="admin-loading-center score-scoring-loading">
+              <span className="admin-spinner" />
+              <span className="score-scoring-loading-text">Sınavlar yükleniyor…</span>
+            </div>
+          ) : eligibleExams.length === 0 ? (
+            <div className="admin-empty-state score-empty-state score-scoring-empty">
+              Hesaplamaya uygun (kapalı / bitmiş / arşivlenmiş) sınav bulunamadı.
+            </div>
+          ) : (
+            <div className="admin-card admin-card-elevated score-card score-scoring-card">
+              <div className="score-scoring-card-header">
+                <h2 className="score-scoring-card-title">Hesaplamaya Uygun Sınavlar</h2>
+              </div>
+              <div className="admin-table-wrapper">
+                <table className="admin-table score-table score-scoring-table">
+                  <thead>
+                    <tr>
+                      <th>Sınav</th>
+                      <th>Durum</th>
+                      <th className="text-right score-scoring-actions-col">İşlemler</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {eligibleExams.map((exam) => (
+                      <tr key={exam.id} className="score-scoring-row">
+                        <td className="font-medium score-scoring-exam-title">{exam.title}</td>
+                        <td>
+                          <span
+                            className={`admin-badge score-scoring-status-badge score-scoring-status-badge--${
+                              exam.status === 5
+                                ? "ended"
+                                : exam.status === 6
+                                  ? "archived"
+                                  : "closed"
+                            }`}
+                          >
+                            {examStatusLabel(exam.status)}
+                          </span>
+                        </td>
+                        <td className="text-right">
+                          <div className="score-scoring-row-actions">
+                            <button
+                              type="button"
+                              onClick={() => openConfirmCalculateResults(exam)}
+                              disabled={!!scoringAction}
+                              className="admin-btn admin-btn-primary score-scoring-btn score-scoring-btn-results"
+                              title="Sonuç hesapla (net, standart net, puan)"
+                            >
+                              {isScoringAction(exam.id, "results") ? (
+                                <>
+                                  <Loader2 size={16} className="score-scoring-btn-spinner" />
+                                  Hesaplanıyor…
+                                </>
+                              ) : (
+                                <>
+                                  <BarChart3 size={16} />
+                                  Sonuç Hesapla
+                                </>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openConfirmCalculateRanking(exam)}
+                              disabled={!!scoringAction}
+                              className="admin-btn admin-btn-secondary score-scoring-btn score-scoring-btn-ranking"
+                              title="Sıralama oluştur (önce sonuç hesaplanmış olmalı)"
+                            >
+                              {isScoringAction(exam.id, "ranking") ? (
+                                <>
+                                  <Loader2 size={16} className="score-scoring-btn-spinner" />
+                                  Oluşturuluyor…
+                                </>
+                              ) : (
+                                <>
+                                  <FileCheck size={16} />
+                                  Sıralama Oluştur
+                                </>
+                              )}
                             </button>
                           </div>
                         </td>
@@ -1728,6 +1916,71 @@ const Score = () => {
                 className="admin-btn admin-btn-danger"
               >
                 {submitting ? "İşleniyor…" : "Sil"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ——— Modals: Skorlar — Sonuç hesaplama / Sıralama onay ——— */}
+      {modal === "confirmCalculateResults" && selected && (
+        <div className="admin-modal-backdrop" onClick={() => setModal(null)}>
+          <div className="admin-modal score-scoring-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header score-scoring-modal-header">
+              Sonuç Hesapla
+            </div>
+            <div className="admin-modal-body">
+              <p className="score-scoring-modal-text">
+                <strong>&quot;{selected.title}&quot;</strong> sınavı için tüm katılımcıların sonuçları
+                (net, standart net, puan) hesaplanacak. Bu işlem uzun sürebilir. Devam etmek istiyor musunuz?
+              </p>
+            </div>
+            <div className="admin-modal-footer">
+              <button
+                type="button"
+                onClick={() => setModal(null)}
+                className="admin-btn admin-btn-secondary"
+              >
+                İptal
+              </button>
+              <button
+                type="button"
+                onClick={handleCalculateResults}
+                className="admin-btn admin-btn-primary score-scoring-modal-btn-confirm"
+              >
+                Sonuç Hesapla
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modal === "confirmCalculateRanking" && selected && (
+        <div className="admin-modal-backdrop" onClick={() => setModal(null)}>
+          <div className="admin-modal score-scoring-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header score-scoring-modal-header">
+              Sıralama Oluştur
+            </div>
+            <div className="admin-modal-body">
+              <p className="score-scoring-modal-text">
+                <strong>&quot;{selected.title}&quot;</strong> sınavı için sıralama (sıra, yüzdelik)
+                oluşturulacak. Önce sonuç hesaplaması yapılmış olmalıdır. Devam etmek istiyor musunuz?
+              </p>
+            </div>
+            <div className="admin-modal-footer">
+              <button
+                type="button"
+                onClick={() => setModal(null)}
+                className="admin-btn admin-btn-secondary"
+              >
+                İptal
+              </button>
+              <button
+                type="button"
+                onClick={handleCalculateRanking}
+                className="admin-btn admin-btn-primary score-scoring-modal-btn-confirm"
+              >
+                Sıralama Oluştur
               </button>
             </div>
           </div>
