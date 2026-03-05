@@ -3,6 +3,7 @@ import {
   FolderTree,
   ChevronLeft,
   ChevronDown,
+  Calculator,
   BookOpen,
   FileCheck,
   FileText,
@@ -21,6 +22,7 @@ const menuSections = [
     items: [
       { icon: LayoutDashboard, label: "Kontrol Paneli", path: "/dashboard" },
       { icon: FolderTree, label: "Kategoriler", path: "/admin/categories" },
+      { icon: Calculator, label: "Score (Puanlama)", path: "/admin/score" },
     ],
   },
   {

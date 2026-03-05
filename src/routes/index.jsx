@@ -10,6 +10,7 @@ import SubscriptionPackages from "@/pages/admin/SubscriptionPackages";
 import Publishers from "@/pages/admin/Publishers";
 import Booklets from "@/pages/admin/Booklets";
 import Exams from "@/pages/admin/Exams";
+import Score from "@/pages/admin/Score";
 import AdminRouteWrapper from "@/components/AdminRouteWrapper";
 
 const AppRoutes = () => {
@@ -24,6 +25,7 @@ const AppRoutes = () => {
             <Route index element={<Navigate to="/admin/categories" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="admin/categories" element={<Categories />} />
+            <Route path="admin/score" element={<Score />} />
             <Route path="admin/lessons" element={<Lessons />} />
             <Route path="admin/exams" element={<Exams />} />
             <Route path="admin/booklets" element={<Booklets />} />

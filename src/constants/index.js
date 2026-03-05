@@ -87,6 +87,7 @@ export const ROUTES = {
   DASHBOARD: "/dashboard",
   PRODUCTS: "/admin/products",
   CATEGORIES: "/admin/categories",
+  SCORE: "/admin/score",
   STORES: "/admin/stores",
   COMPANIES: "/admin/companies",
   PAYMENTS: "/admin/payments",

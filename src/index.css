@@ -426,4 +426,126 @@
       max-height: 280px;
     }
   }
+
+  /* ——— Score (Kategori Puanlama) sayfası ——— */
+  .score-page {
+    padding-bottom: 2rem;
+  }
+  .score-page-header {
+    margin-bottom: 1.25rem;
+  }
+  .score-page-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: rgb(15 23 42);
+  }
+  .score-page-title-icon {
+    flex-shrink: 0;
+    color: rgb(5 150 105);
+  }
+  @media (min-width: 640px) {
+    .score-page-title { font-size: 1.5rem; }
+  }
+  @media (min-width: 1024px) {
+    .score-page-title { font-size: 1.75rem; }
+  }
+  .score-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    padding: 0.25rem;
+    background: rgb(248 250 252);
+    border-radius: 0.75rem;
+    border: 1px solid rgb(226 232 240);
+  }
+  .score-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: rgb(100 116 139);
+    background: transparent;
+    border: none;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .score-tab:hover {
+    background: rgb(241 245 249);
+    color: rgb(51 65 85);
+  }
+  .score-tab-active {
+    background: rgb(16 185 129);
+    color: white;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+  }
+  .score-tab-active:hover {
+    background: rgb(5 150 105);
+    color: white;
+  }
+  .score-tab-icon {
+    flex-shrink: 0;
+    opacity: 0.9;
+  }
+  .score-tab-active .score-tab-icon {
+    opacity: 1;
+  }
+  .score-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding: 1rem 1.25rem;
+    background: linear-gradient(135deg, rgb(236 253 245) 0%, rgb(240 253 250) 100%);
+    border: 1px solid rgb(167 243 208);
+    border-radius: 0.75rem;
+  }
+  .score-filter-select {
+    min-width: 12rem;
+    max-width: 16rem;
+  }
+  .score-filters-actions {
+    margin-left: auto;
+  }
+  .score-empty-state {
+    padding: 2.5rem 1.5rem;
+    font-size: 0.9375rem;
+    color: rgb(100 116 139);
+    background: white;
+    border-radius: 0.75rem;
+    border: 1px dashed rgb(203 213 225);
+  }
+  .score-card {
+    border-radius: 0.75rem;
+    overflow: hidden;
+  }
+  .score-table thead th {
+    background: linear-gradient(to right, rgb(248 250 252), rgb(241 245 249));
+  }
+  .score-table tbody tr {
+    transition: background-color 0.12s ease;
+  }
+  .score-table tbody tr:hover {
+    background: rgb(236 253 245 / 0.35);
+  }
+  .score-row-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.25rem;
+  }
+  .score-modal-body {
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+  .score-modal-body .admin-form-group:last-of-type {
+    margin-bottom: 0;
+  }
 }
