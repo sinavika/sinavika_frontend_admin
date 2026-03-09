@@ -965,4 +965,303 @@
   .students-score-results-list li {
     margin-bottom: 0.2rem;
   }
+
+  /* ——— Referans Sistemi sayfası ——— */
+  .ref-page {
+    padding-bottom: 2rem;
+  }
+  .ref-page-header {
+    margin-bottom: 1.5rem;
+  }
+  .ref-page-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: rgb(15 23 42);
+  }
+  .ref-page-title-icon {
+    flex-shrink: 0;
+    color: rgb(16 185 129);
+  }
+  .ref-page-desc {
+    margin: 0.5rem 0 0 0;
+    font-size: 0.9375rem;
+    color: rgb(100 116 139);
+    max-width: 42rem;
+  }
+  .ref-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-bottom: 1.5rem;
+    padding: 0.25rem;
+    background: rgb(248 250 252);
+    border-radius: 0.75rem;
+    border: 1px solid rgb(226 232 240);
+  }
+  .ref-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: rgb(100 116 139);
+    background: transparent;
+    border: none;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .ref-tab:hover {
+    background: rgb(241 245 249);
+    color: rgb(51 65 85);
+  }
+  .ref-tab-active {
+    background: rgb(16 185 129);
+    color: white;
+  }
+  .ref-tab-active:hover {
+    background: rgb(5 150 105);
+    color: white;
+  }
+  .ref-tab-icon {
+    flex-shrink: 0;
+  }
+  .ref-tab-badge {
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+    color: white;
+    background: rgb(245 158 11);
+    border-radius: 9999px;
+  }
+  .ref-tab-active .ref-tab-badge {
+    background: rgb(255 255 255 / 0.9);
+    color: rgb(5 150 105);
+  }
+  .ref-section {
+    margin-bottom: 1rem;
+  }
+  .ref-section-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .ref-section-hint {
+    margin: 0;
+    font-size: 0.875rem;
+    color: rgb(100 116 139);
+    flex: 1;
+    min-width: 0;
+  }
+  .ref-btn-refresh {
+    flex-shrink: 0;
+  }
+  .ref-loading {
+    padding: 3rem 2rem;
+  }
+  .ref-spinner {
+    animation: admin-spin 0.7s linear infinite;
+    color: rgb(16 185 129);
+  }
+  .ref-empty {
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+    background: white;
+    border-radius: 0.75rem;
+    border: 1px dashed rgb(203 213 225);
+  }
+  .ref-empty-icon {
+    display: block;
+    margin: 0 auto 0.75rem;
+    color: rgb(203 213 225);
+  }
+  .ref-empty-title {
+    margin: 0;
+    font-weight: 600;
+    color: rgb(71 85 105);
+  }
+  .ref-empty-desc {
+    margin: 0.25rem 0 0 0;
+    font-size: 0.875rem;
+    color: rgb(100 116 139);
+  }
+  .ref-card {
+    overflow: hidden;
+  }
+  .ref-table thead th {
+    background: linear-gradient(to right, rgb(248 250 252), rgb(241 245 249));
+  }
+  .ref-table tbody tr:hover {
+    background: rgb(236 253 245 / 0.3);
+  }
+  .ref-cell-social {
+    max-width: 160px;
+    font-size: 0.8125rem;
+    color: rgb(100 116 139);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ref-cell-code {
+    font-size: 0.875rem;
+  }
+  .ref-row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.25rem;
+  }
+  .ref-btn-approve {
+    font-size: 0.8125rem;
+  }
+  .ref-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border-radius: 9999px;
+  }
+  .ref-badge-icon {
+    flex-shrink: 0;
+  }
+  .ref-badge-pending {
+    background: rgb(254 243 199);
+    color: rgb(146 64 14);
+  }
+  .ref-badge-success {
+    background: rgb(209 250 229);
+    color: rgb(6 95 70);
+  }
+  .ref-badge-danger {
+    background: rgb(254 226 226);
+    color: rgb(185 28 28);
+  }
+  .ref-badge-paid {
+    background: rgb(219 234 254);
+    color: rgb(29 78 216);
+  }
+  .ref-badge-neutral {
+    background: rgb(226 232 240);
+    color: rgb(71 85 105);
+  }
+  .ref-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding: 1rem 1.25rem;
+    background: linear-gradient(135deg, rgb(236 253 245) 0%, rgb(240 253 250) 100%);
+    border: 1px solid rgb(167 243 208);
+    border-radius: 0.75rem;
+  }
+  .ref-filter-group {
+    flex: 0 1 auto;
+  }
+  .ref-filter-group .admin-label {
+    margin-bottom: 0.25rem;
+  }
+  .ref-filter-select,
+  .ref-filter-input {
+    min-width: 140px;
+  }
+  .ref-btn-filter {
+    flex-shrink: 0;
+  }
+  .ref-modal .admin-modal-header {
+    border-bottom-color: rgb(226 232 240);
+  }
+  .ref-modal-header {
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+  .ref-modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+  .ref-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1rem 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .ref-detail-label {
+    margin: 0 0 0.25rem 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgb(100 116 139);
+  }
+  .ref-detail-block {
+    margin-bottom: 1rem;
+  }
+  .ref-detail-list {
+    margin: 0;
+    padding-left: 1.25rem;
+    font-size: 0.875rem;
+    color: rgb(51 65 85);
+  }
+  .ref-detail-list li {
+    margin-bottom: 0.25rem;
+  }
+  .ref-detail-iban {
+    padding-top: 1rem;
+    border-top: 1px solid rgb(226 232 240);
+  }
+  .ref-iban-box {
+    padding: 0.75rem 1rem;
+    background: rgb(248 250 252);
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    color: rgb(51 65 85);
+  }
+  .ref-iban-box p {
+    margin: 0.25rem 0 0 0;
+  }
+  .ref-iban-box p:first-child {
+    margin-top: 0;
+  }
+  .ref-detail-footer {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgb(226 232 240);
+    font-size: 0.8125rem;
+    color: rgb(100 116 139);
+  }
+  .ref-ledger-block {
+    margin-top: 1rem;
+  }
+  .ref-btn-ledger {
+    font-size: 0.875rem;
+  }
+  .ref-approve-intro {
+    margin: 0 0 1rem 0;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: rgb(51 65 85);
+  }
+  .ref-ledger-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  .ref-ledger-filters .ref-filter-input {
+    min-width: 160px;
+  }
 }
