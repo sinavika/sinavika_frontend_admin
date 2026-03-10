@@ -1,5 +1,5 @@
-// AdminScoring — Sınav sonuç hesaplama ve sıralama
-// Doc: docs/AdminScoring-API-Rapor.md
+// AdminScoring — Sınav sonuç ve sıralama hesaplama (tek endpoint)
+// Doc: docs/admin-scoring-controller-api.md
 import adminApi from "@/api/adminApi";
 
 /** Uzun süren sonuç hesaplama için timeout (ms). Sunucu tarafında da Kestrel timeout artırılmalı (örn. 300s+). */
@@ -18,30 +18,18 @@ export const getExamsEligibleForScoring = async () => {
 };
 
 /**
- * Sınav sonuçlarını hesapla. Entity/Scoring tablolarını doldurur.
+ * Sınav sonuçlarını ve sıralamayı tek seferde hesapla.
+ * Net/puan hesaplanır, Entity/Scoring tabloları doldurulur, ardından sıralama atanır.
  * Her sınav için yalnızca bir kez çalıştırılmalıdır. Uzun sürebilir.
  * POST /AdminScoring/exam/{examId}/calculate-results
  * @param {string} examId Sınav ID (GUID)
+ * @returns {Promise<{ message: string, examId: string }>}
  */
 export const calculateExamResults = async (examId) => {
   const response = await adminApi.post(
     `/AdminScoring/exam/${examId}/calculate-results`,
     null,
     { timeout: SCORING_REQUEST_TIMEOUT_MS }
-  );
-  return response.data;
-};
-
-/**
- * Sınav için genel sıralama oluştur. Sonuç hesaplama tamamlandıktan sonra çağrılmalıdır.
- * POST /AdminScoring/exam/{examId}/calculate-ranking
- * @param {string} examId Sınav ID (GUID)
- */
-export const calculateExamRanking = async (examId) => {
-  const response = await adminApi.post(
-    `/AdminScoring/exam/${examId}/calculate-ranking`,
-    null,
-    { timeout: 60000 } // 1 dakika
   );
   return response.data;
 };

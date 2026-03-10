@@ -553,23 +553,34 @@
   .score-scoring-intro {
     display: flex;
     align-items: flex-start;
-    gap: 0.75rem;
-    margin-bottom: 1.5rem;
-    padding: 1rem 1.25rem;
-    background: linear-gradient(135deg, rgb(239 246 255) 0%, rgb(241 245 253) 100%);
-    border: 1px solid rgb(191 219 254);
-    border-radius: 0.75rem;
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+    padding: 1.25rem 1.5rem;
+    background: linear-gradient(135deg, rgb(236 254 255) 0%, rgb(240 253 250) 50%, rgb(236 253 245) 100%);
+    border: 1px solid rgb(167 243 208);
+    border-radius: 0.875rem;
     font-size: 0.9375rem;
-    line-height: 1.55;
+    line-height: 1.6;
     color: rgb(30 41 59);
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04);
   }
   .score-scoring-intro-icon {
     flex-shrink: 0;
-    margin-top: 0.125rem;
-    color: rgb(59 130 246);
+    margin-top: 0.15rem;
+    color: rgb(5 150 105);
+  }
+  .score-scoring-intro-content {
+    flex: 1;
+    min-width: 0;
+  }
+  .score-scoring-intro-title {
+    margin: 0 0 0.35em;
+    font-size: 1rem;
+    font-weight: 600;
+    color: rgb(15 23 42);
   }
   .score-scoring-intro strong {
-    color: rgb(29 78 216);
+    color: rgb(5 150 105);
   }
   .score-scoring-loading {
     flex-direction: column;
@@ -586,15 +597,17 @@
   }
   .score-scoring-card {
     overflow: hidden;
+    border-radius: 0.875rem;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 4px 6px -2px rgb(0 0 0 / 0.04);
   }
   .score-scoring-card-header {
-    padding: 1rem 1.25rem;
+    padding: 1.125rem 1.5rem;
     background: linear-gradient(to right, rgb(248 250 252), rgb(241 245 249));
     border-bottom: 1px solid rgb(226 232 240);
   }
   .score-scoring-card-title {
     margin: 0;
-    font-size: 1rem;
+    font-size: 1.0625rem;
     font-weight: 600;
     color: rgb(30 41 59);
   }
@@ -602,16 +615,22 @@
     background: linear-gradient(to right, rgb(248 250 252), rgb(241 245 249));
   }
   .score-scoring-actions-col {
-    min-width: 280px;
+    min-width: 220px;
+    width: 1%;
+    white-space: nowrap;
   }
   .score-scoring-row:hover {
-    background: rgb(236 253 245 / 0.4);
+    background: rgb(236 253 245 / 0.45);
   }
   .score-scoring-exam-title {
-    max-width: 320px;
+    max-width: 360px;
+    font-weight: 500;
   }
   .score-scoring-status-badge {
     font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.25em 0.6em;
+    border-radius: 9999px;
   }
   .score-scoring-status-badge--closed {
     background: rgb(226 232 240);
@@ -627,28 +646,37 @@
   }
   .score-scoring-row-actions {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;
     gap: 0.5rem;
   }
   .score-scoring-btn {
-    min-height: 36px;
-    font-size: 0.8125rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 40px;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 0.5rem;
+    transition: background 0.2s ease, transform 0.1s ease;
   }
-  .score-scoring-btn-results {
-    background: rgb(16 185 129);
+  .score-scoring-btn:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  .score-scoring-btn-calculate {
+    background: linear-gradient(180deg, rgb(16 185 129), rgb(5 150 105));
     color: white;
+    border: none;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   }
-  .score-scoring-btn-results:hover:not(:disabled) {
-    background: rgb(5 150 105);
+  .score-scoring-btn-calculate:hover:not(:disabled) {
+    background: linear-gradient(180deg, rgb(5 150 105), rgb(4 120 87));
+    box-shadow: 0 2px 4px 0 rgb(0 0 0 / 0.08);
   }
-  .score-scoring-btn-ranking {
-    border-color: rgb(148 163 184);
-    color: rgb(51 65 85);
-  }
-  .score-scoring-btn-ranking:hover:not(:disabled) {
-    background: rgb(241 245 249);
+  .score-scoring-btn-calculate:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
   }
   .score-scoring-btn-spinner {
     animation: admin-spin 0.7s linear infinite;
@@ -658,15 +686,16 @@
   }
   .score-scoring-modal-header {
     font-size: 1.125rem;
+    font-weight: 600;
   }
   .score-scoring-modal-text {
     margin: 0;
     font-size: 0.9375rem;
-    line-height: 1.6;
+    line-height: 1.65;
     color: rgb(51 65 85);
   }
   .score-scoring-modal-btn-confirm {
-    min-width: 140px;
+    min-width: 120px;
   }
 
   /* ——— Öğrenci Yönetimi sayfası ——— */

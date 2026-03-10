@@ -39,7 +39,6 @@ import { getAllCategorySections } from "@/services/adminCategorySectionService";
 import {
   getExamsEligibleForScoring,
   calculateExamResults,
-  calculateExamRanking,
 } from "@/services/adminScoringService";
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from "@/constants";
 import { formatDateShort } from "@/utils/format";
@@ -57,10 +56,11 @@ const TABS = [
   { id: "scoring", label: "Skorlar (Sonuç Hesaplama)", icon: FileCheck },
 ];
 
+// API: 0=Scheduled, 1=Ended, 2=Closed, 3=Archived
 const EXAM_STATUS_LABELS = {
-  4: "Kapalı",
-  5: "Bitti",
-  6: "Arşivlendi",
+  1: "Bitti",
+  2: "Kapalı",
+  3: "Arşivlendi",
 };
 
 const INPUT_TYPES = [
@@ -101,7 +101,7 @@ const Score = () => {
   // Skorlar sekmesi: hesaplamaya uygun sınavlar ve işlem durumu
   const [eligibleExams, setEligibleExams] = useState([]);
   const [loadingScoring, setLoadingScoring] = useState(false);
-  const [scoringAction, setScoringAction] = useState(null); // { examId, examTitle, type: 'results' | 'ranking' }
+  const [scoringAction, setScoringAction] = useState(null); // { examId, examTitle } — tek işlem: sonuç + sıralama
 
   // Form state — Profil
   const [formProfile, setFormProfile] = useState({
@@ -623,24 +623,19 @@ const Score = () => {
   const examStatusLabel = (status) =>
     EXAM_STATUS_LABELS[status] ?? `Durum ${status}`;
 
-  // ——— Skorlar: Sonuç hesaplama / Sıralama onay modalları ———
+  // ——— Skorlar: Sonuç + sıralama hesaplama (tek endpoint) ———
   const openConfirmCalculateResults = (exam) => {
     setSelected(exam);
     setModal("confirmCalculateResults");
   };
 
-  const openConfirmCalculateRanking = (exam) => {
-    setSelected(exam);
-    setModal("confirmCalculateRanking");
-  };
-
   const handleCalculateResults = async () => {
     if (!selected) return;
-    setScoringAction({ examId: selected.id, examTitle: selected.title, type: "results" });
+    setScoringAction({ examId: selected.id, examTitle: selected.title });
     setModal(null);
     try {
       await calculateExamResults(selected.id);
-      toast.success("Sınav sonuçları başarıyla hesaplandı ve kaydedildi.");
+      toast.success("Sınav sonuçları ve sıralama başarıyla hesaplandı ve kaydedildi.");
       loadEligibleExams();
     } catch (err) {
       toast.error(getApiError(err));
@@ -649,23 +644,7 @@ const Score = () => {
     }
   };
 
-  const handleCalculateRanking = async () => {
-    if (!selected) return;
-    setScoringAction({ examId: selected.id, examTitle: selected.title, type: "ranking" });
-    setModal(null);
-    try {
-      await calculateExamRanking(selected.id);
-      toast.success("Sıralama başarıyla oluşturuldu.");
-      loadEligibleExams();
-    } catch (err) {
-      toast.error(getApiError(err));
-    } finally {
-      setScoringAction(null);
-    }
-  };
-
-  const isScoringAction = (examId, type) =>
-    scoringAction?.examId === examId && scoringAction?.type === type;
+  const isScoringAction = (examId) => scoringAction?.examId === examId;
 
   return (
     <div className="admin-page-wrapper score-page">
@@ -1005,12 +984,14 @@ const Score = () => {
       {activeTab === "scoring" && (
         <>
           <div className="score-scoring-intro">
-            <BarChart3 size={20} className="score-scoring-intro-icon" />
-            <p>
-              Kapalı, bitmiş veya arşivlenmiş sınavlar için önce <strong>Sonuç Hesapla</strong> ile
-              net, standart net ve puanları hesaplatın; ardından <strong>Sıralama Oluştur</strong> ile
-              sıra ve yüzdelik bilgilerini oluşturun. Her işlem sınav başına yalnızca bir kez çalıştırılmalıdır.
-            </p>
+            <BarChart3 size={22} className="score-scoring-intro-icon" aria-hidden />
+            <div className="score-scoring-intro-content">
+              <p className="score-scoring-intro-title">Sonuç ve sıralama hesaplama</p>
+              <p>
+                Kapalı, bitmiş veya arşivlenmiş sınavlar için <strong>Sonuç ve Sıralama Hesapla</strong> ile
+                net, standart net, puanlar ve sıralama tek seferde hesaplanır. Her sınav için yalnızca bir kez çalıştırın.
+              </p>
+            </div>
           </div>
 
           {loadingScoring ? (
@@ -1043,11 +1024,7 @@ const Score = () => {
                         <td>
                           <span
                             className={`admin-badge score-scoring-status-badge score-scoring-status-badge--${
-                              exam.status === 5
-                                ? "ended"
-                                : exam.status === 6
-                                  ? "archived"
-                                  : "closed"
+                              exam.status === 1 ? "ended" : exam.status === 3 ? "archived" : "closed"
                             }`}
                           >
                             {examStatusLabel(exam.status)}
@@ -1059,37 +1036,18 @@ const Score = () => {
                               type="button"
                               onClick={() => openConfirmCalculateResults(exam)}
                               disabled={!!scoringAction}
-                              className="admin-btn admin-btn-primary score-scoring-btn score-scoring-btn-results"
-                              title="Sonuç hesapla (net, standart net, puan)"
+                              className="admin-btn admin-btn-primary score-scoring-btn score-scoring-btn-calculate"
+                              title="Sonuç ve sıralama hesapla (net, puan, sıra)"
                             >
-                              {isScoringAction(exam.id, "results") ? (
+                              {isScoringAction(exam.id) ? (
                                 <>
-                                  <Loader2 size={16} className="score-scoring-btn-spinner" />
-                                  Hesaplanıyor…
+                                  <Loader2 size={18} className="score-scoring-btn-spinner" aria-hidden />
+                                  <span>Hesaplanıyor…</span>
                                 </>
                               ) : (
                                 <>
-                                  <BarChart3 size={16} />
-                                  Sonuç Hesapla
-                                </>
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openConfirmCalculateRanking(exam)}
-                              disabled={!!scoringAction}
-                              className="admin-btn admin-btn-secondary score-scoring-btn score-scoring-btn-ranking"
-                              title="Sıralama oluştur (önce sonuç hesaplanmış olmalı)"
-                            >
-                              {isScoringAction(exam.id, "ranking") ? (
-                                <>
-                                  <Loader2 size={16} className="score-scoring-btn-spinner" />
-                                  Oluşturuluyor…
-                                </>
-                              ) : (
-                                <>
-                                  <FileCheck size={16} />
-                                  Sıralama Oluştur
+                                  <Calculator size={18} aria-hidden />
+                                  <span>Sonuç ve Sıralama Hesapla</span>
                                 </>
                               )}
                             </button>
@@ -1927,12 +1885,12 @@ const Score = () => {
         <div className="admin-modal-backdrop" onClick={() => setModal(null)}>
           <div className="admin-modal score-scoring-modal" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header score-scoring-modal-header">
-              Sonuç Hesapla
+              Sonuç ve Sıralama Hesapla
             </div>
             <div className="admin-modal-body">
               <p className="score-scoring-modal-text">
                 <strong>&quot;{selected.title}&quot;</strong> sınavı için tüm katılımcıların sonuçları
-                (net, standart net, puan) hesaplanacak. Bu işlem uzun sürebilir. Devam etmek istiyor musunuz?
+                (net, standart net, puan) ve sıralama tek seferde hesaplanacak. Bu işlem uzun sürebilir. Devam etmek istiyor musunuz?
               </p>
             </div>
             <div className="admin-modal-footer">
@@ -1948,39 +1906,7 @@ const Score = () => {
                 onClick={handleCalculateResults}
                 className="admin-btn admin-btn-primary score-scoring-modal-btn-confirm"
               >
-                Sonuç Hesapla
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {modal === "confirmCalculateRanking" && selected && (
-        <div className="admin-modal-backdrop" onClick={() => setModal(null)}>
-          <div className="admin-modal score-scoring-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="admin-modal-header score-scoring-modal-header">
-              Sıralama Oluştur
-            </div>
-            <div className="admin-modal-body">
-              <p className="score-scoring-modal-text">
-                <strong>&quot;{selected.title}&quot;</strong> sınavı için sıralama (sıra, yüzdelik)
-                oluşturulacak. Önce sonuç hesaplaması yapılmış olmalıdır. Devam etmek istiyor musunuz?
-              </p>
-            </div>
-            <div className="admin-modal-footer">
-              <button
-                type="button"
-                onClick={() => setModal(null)}
-                className="admin-btn admin-btn-secondary"
-              >
-                İptal
-              </button>
-              <button
-                type="button"
-                onClick={handleCalculateRanking}
-                className="admin-btn admin-btn-primary score-scoring-modal-btn-confirm"
-              >
-                Sıralama Oluştur
+                Hesapla
               </button>
             </div>
           </div>
