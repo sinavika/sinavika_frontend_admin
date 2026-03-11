@@ -18,33 +18,26 @@ import { getAllCategories } from "@/services/adminCategoryService";
 import { getSubsByCategoryId } from "@/services/adminCategorySubService";
 import {
   getAllLessons,
-  getLessonsByCategorySubId,
   getLessonById,
   createLesson,
   updateLesson,
   deleteLesson,
-} from "@/services/adminLessonService";
-import {
   getLessonMainsByLessonId,
   getLessonMainById,
   createLessonMain,
   updateLessonMain,
   deleteLessonMain,
-} from "@/services/adminLessonMainService";
-import {
   getLessonSubsByLessonMainId,
   getLessonSubById,
   createLessonSub,
   updateLessonSub,
   deleteLessonSub,
-} from "@/services/adminLessonSubService";
-import {
   getMikrosByLessonSubId,
   getLessonMikroById,
   createLessonMikro,
   updateLessonMikro,
   deleteLessonMikro,
-} from "@/services/adminLessonMikroService";
+} from "@/services/adminLessonService";
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from "@/constants";
 
 const getApiError = (err) =>
@@ -109,10 +102,13 @@ const Lessons = () => {
   const loadLessons = useCallback(async () => {
     setLessonsLoading(true);
     try {
-      const data = selectedCategorySubId
-        ? await getLessonsByCategorySubId(selectedCategorySubId)
-        : await getAllLessons();
-      setLessons(Array.isArray(data) ? data : []);
+      const data = await getAllLessons();
+      const list = Array.isArray(data) ? data : [];
+      setLessons(
+        selectedCategorySubId
+          ? list.filter((l) => l.categorySubId === selectedCategorySubId)
+          : list
+      );
     } catch (err) {
       toast.error(getApiError(err));
       setLessons([]);
@@ -143,13 +139,13 @@ const Lessons = () => {
   }, [selectedLesson?.id]);
 
   useEffect(() => {
-    if (!selectedLessonMain?.id) {
+    if (!selectedLesson?.id || !selectedLessonMain?.id) {
       setLessonSubs([]);
       setSelectedLessonSub(null);
       return;
     }
     setLessonSubsLoading(true);
-    getLessonSubsByLessonMainId(selectedLessonMain.id)
+    getLessonSubsByLessonMainId(selectedLesson.id, selectedLessonMain.id)
       .then((data) => setLessonSubs(Array.isArray(data) ? data : []))
       .catch((err) => {
         toast.error(getApiError(err));
@@ -157,22 +153,22 @@ const Lessons = () => {
       })
       .finally(() => setLessonSubsLoading(false));
     setSelectedLessonSub(null);
-  }, [selectedLessonMain?.id]);
+  }, [selectedLesson?.id, selectedLessonMain?.id]);
 
   useEffect(() => {
-    if (!selectedLessonSub?.id) {
+    if (!selectedLesson?.id || !selectedLessonMain?.id || !selectedLessonSub?.id) {
       setLessonMikros([]);
       return;
     }
     setLessonMikrosLoading(true);
-    getMikrosByLessonSubId(selectedLessonSub.id)
+    getMikrosByLessonSubId(selectedLesson.id, selectedLessonMain.id, selectedLessonSub.id)
       .then((data) => setLessonMikros(Array.isArray(data) ? data : []))
       .catch((err) => {
         toast.error(getApiError(err));
         setLessonMikros([]);
       })
       .finally(() => setLessonMikrosLoading(false));
-  }, [selectedLessonSub?.id]);
+  }, [selectedLesson?.id, selectedLessonMain?.id, selectedLessonSub?.id]);
 
   const openLessonCreate = () => {
     const catId = selectedCategoryId || (categories[0]?.id ?? "");
@@ -325,10 +321,10 @@ const Lessons = () => {
 
   const handleLessonMainUpdate = async (e) => {
     e.preventDefault();
-    if (!form.id) return;
+    if (!selectedLesson?.id || !form.id) return;
     setSubmitting(true);
     try {
-      await updateLessonMain(form.id, {
+      await updateLessonMain(selectedLesson.id, form.id, {
         code: form.code?.trim(),
         name: form.name?.trim(),
         description: form.description?.trim() || null,
@@ -337,10 +333,8 @@ const Lessons = () => {
       });
       toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
       setModal(null);
-      if (selectedLesson?.id) {
-        const data = await getLessonMainsByLessonId(selectedLesson.id);
-        setLessonMains(Array.isArray(data) ? data : []);
-      }
+      const data = await getLessonMainsByLessonId(selectedLesson.id);
+      setLessonMains(Array.isArray(data) ? data : []);
     } catch (err) {
       toast.error(getApiError(err));
     } finally {
@@ -349,16 +343,14 @@ const Lessons = () => {
   };
 
   const handleLessonMainDelete = async () => {
-    if (!form.id) return;
+    if (!selectedLesson?.id || !form.id) return;
     setSubmitting(true);
     try {
-      await deleteLessonMain(form.id);
+      await deleteLessonMain(selectedLesson.id, form.id);
       toast.success("Ders içeriği silindi.");
       setModal(null);
-      if (selectedLesson?.id) {
-        const data = await getLessonMainsByLessonId(selectedLesson.id);
-        setLessonMains(Array.isArray(data) ? data : []);
-      }
+      const data = await getLessonMainsByLessonId(selectedLesson.id);
+      setLessonMains(Array.isArray(data) ? data : []);
       if (selectedLessonMain?.id === form.id) setSelectedLessonMain(null);
     } catch (err) {
       toast.error(getApiError(err));
@@ -397,13 +389,13 @@ const Lessons = () => {
 
   const handleLessonSubCreate = async (e) => {
     e.preventDefault();
-    if (!selectedLessonMain?.id || !form.code?.trim() || !form.name?.trim()) {
+    if (!selectedLesson?.id || !selectedLessonMain?.id || !form.code?.trim() || !form.name?.trim()) {
       toast.error("Kod ve ad zorunludur.");
       return;
     }
     setSubmitting(true);
     try {
-      await createLessonSub(selectedLessonMain.id, {
+      await createLessonSub(selectedLesson.id, selectedLessonMain.id, {
         code: form.code.trim(),
         name: form.name.trim(),
         description: form.description?.trim() || null,
@@ -412,7 +404,7 @@ const Lessons = () => {
       });
       toast.success("Alt konu oluşturuldu.");
       setModal(null);
-      const data = await getLessonSubsByLessonMainId(selectedLessonMain.id);
+      const data = await getLessonSubsByLessonMainId(selectedLesson.id, selectedLessonMain.id);
       setLessonSubs(Array.isArray(data) ? data : []);
     } catch (err) {
       toast.error(getApiError(err));
@@ -423,10 +415,10 @@ const Lessons = () => {
 
   const handleLessonSubUpdate = async (e) => {
     e.preventDefault();
-    if (!form.id) return;
+    if (!selectedLesson?.id || !selectedLessonMain?.id || !form.id) return;
     setSubmitting(true);
     try {
-      await updateLessonSub(form.id, {
+      await updateLessonSub(selectedLesson.id, selectedLessonMain.id, form.id, {
         code: form.code?.trim(),
         name: form.name?.trim(),
         description: form.description?.trim() || null,
@@ -435,10 +427,8 @@ const Lessons = () => {
       });
       toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
       setModal(null);
-      if (selectedLessonMain?.id) {
-        const data = await getLessonSubsByLessonMainId(selectedLessonMain.id);
-        setLessonSubs(Array.isArray(data) ? data : []);
-      }
+      const data = await getLessonSubsByLessonMainId(selectedLesson.id, selectedLessonMain.id);
+      setLessonSubs(Array.isArray(data) ? data : []);
     } catch (err) {
       toast.error(getApiError(err));
     } finally {
@@ -447,16 +437,14 @@ const Lessons = () => {
   };
 
   const handleLessonSubDelete = async () => {
-    if (!form.id) return;
+    if (!selectedLesson?.id || !selectedLessonMain?.id || !form.id) return;
     setSubmitting(true);
     try {
-      await deleteLessonSub(form.id);
+      await deleteLessonSub(selectedLesson.id, selectedLessonMain.id, form.id);
       toast.success("Alt konu silindi.");
       setModal(null);
-      if (selectedLessonMain?.id) {
-        const data = await getLessonSubsByLessonMainId(selectedLessonMain.id);
-        setLessonSubs(Array.isArray(data) ? data : []);
-      }
+      const data = await getLessonSubsByLessonMainId(selectedLesson.id, selectedLessonMain.id);
+      setLessonSubs(Array.isArray(data) ? data : []);
       if (selectedLessonSub?.id === form.id) setSelectedLessonSub(null);
     } catch (err) {
       toast.error(getApiError(err));
@@ -495,13 +483,13 @@ const Lessons = () => {
 
   const handleLessonMikroCreate = async (e) => {
     e.preventDefault();
-    if (!selectedLessonSub?.id || !form.code?.trim() || !form.name?.trim()) {
+    if (!selectedLesson?.id || !selectedLessonMain?.id || !selectedLessonSub?.id || !form.code?.trim() || !form.name?.trim()) {
       toast.error("Kod ve ad zorunludur.");
       return;
     }
     setSubmitting(true);
     try {
-      await createLessonMikro(selectedLessonSub.id, {
+      await createLessonMikro(selectedLesson.id, selectedLessonMain.id, selectedLessonSub.id, {
         code: form.code.trim(),
         name: form.name.trim(),
         description: form.description?.trim() || null,
@@ -510,7 +498,7 @@ const Lessons = () => {
       });
       toast.success("Mikro konu oluşturuldu.");
       setModal(null);
-      const data = await getMikrosByLessonSubId(selectedLessonSub.id);
+      const data = await getMikrosByLessonSubId(selectedLesson.id, selectedLessonMain.id, selectedLessonSub.id);
       setLessonMikros(Array.isArray(data) ? data : []);
     } catch (err) {
       toast.error(getApiError(err));
@@ -521,10 +509,10 @@ const Lessons = () => {
 
   const handleLessonMikroUpdate = async (e) => {
     e.preventDefault();
-    if (!form.id) return;
+    if (!selectedLesson?.id || !selectedLessonMain?.id || !selectedLessonSub?.id || !form.id) return;
     setSubmitting(true);
     try {
-      await updateLessonMikro(form.id, {
+      await updateLessonMikro(selectedLesson.id, selectedLessonMain.id, selectedLessonSub.id, form.id, {
         code: form.code?.trim(),
         name: form.name?.trim(),
         description: form.description?.trim() || null,
@@ -533,10 +521,8 @@ const Lessons = () => {
       });
       toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
       setModal(null);
-      if (selectedLessonSub?.id) {
-        const data = await getMikrosByLessonSubId(selectedLessonSub.id);
-        setLessonMikros(Array.isArray(data) ? data : []);
-      }
+      const data = await getMikrosByLessonSubId(selectedLesson.id, selectedLessonMain.id, selectedLessonSub.id);
+      setLessonMikros(Array.isArray(data) ? data : []);
     } catch (err) {
       toast.error(getApiError(err));
     } finally {
@@ -545,16 +531,14 @@ const Lessons = () => {
   };
 
   const handleLessonMikroDelete = async () => {
-    if (!form.id) return;
+    if (!selectedLesson?.id || !selectedLessonMain?.id || !selectedLessonSub?.id || !form.id) return;
     setSubmitting(true);
     try {
-      await deleteLessonMikro(form.id);
+      await deleteLessonMikro(selectedLesson.id, selectedLessonMain.id, selectedLessonSub.id, form.id);
       toast.success("Mikro konu silindi.");
       setModal(null);
-      if (selectedLessonSub?.id) {
-        const data = await getMikrosByLessonSubId(selectedLessonSub.id);
-        setLessonMikros(Array.isArray(data) ? data : []);
-      }
+      const data = await getMikrosByLessonSubId(selectedLesson.id, selectedLessonMain.id, selectedLessonSub.id);
+      setLessonMikros(Array.isArray(data) ? data : []);
     } catch (err) {
       toast.error(getApiError(err));
     } finally {

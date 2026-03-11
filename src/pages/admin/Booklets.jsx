@@ -32,9 +32,11 @@ import {
   setBookletStatus,
   deleteBooklet,
 } from "@/services/adminQuestionBookletService";
-import { getAllLessons } from "@/services/adminLessonService";
-import { getLessonMainsByLessonId } from "@/services/adminLessonMainService";
-import { getLessonSubsByLessonMainId } from "@/services/adminLessonSubService";
+import {
+  getAllLessons,
+  getLessonMainsByLessonId,
+  getLessonSubsByLessonMainId,
+} from "@/services/adminLessonService";
 import { getAllPublishers } from "@/services/adminPublisherService";
 import { ERROR_MESSAGES, SUCCESS_MESSAGES, getFullImageUrl } from "@/constants";
 
@@ -318,12 +320,15 @@ const Booklets = () => {
         getAllPublishers().then((d) => (Array.isArray(d) ? d : [])),
       ]);
       setPublishers(pubList);
-      const mains = await Promise.all(
-        (Array.isArray(lessons) ? lessons : []).map((l) => getLessonMainsByLessonId(l.id))
+      const lessonList = Array.isArray(lessons) ? lessons : [];
+      const mainsPerLesson = await Promise.all(
+        lessonList.map((l) => getLessonMainsByLessonId(l.id))
       );
-      const flatMains = mains.flat();
+      const flatMains = lessonList.flatMap((l, i) =>
+        (mainsPerLesson[i] || []).map((m) => ({ ...m, lessonId: m.lessonId ?? l.id }))
+      );
       const subArrays = await Promise.all(
-        flatMains.map((m) => getLessonSubsByLessonMainId(m.id))
+        flatMains.map((m) => getLessonSubsByLessonMainId(m.lessonId, m.id))
       );
       setFlatLessonSubs(subArrays.flat());
     } catch {

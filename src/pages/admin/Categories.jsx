@@ -29,7 +29,7 @@ import {
   updateCategorySection,
   deleteCategorySection,
 } from "@/services/adminCategorySectionService";
-import { getAllLessonMains } from "@/services/adminLessonMainService";
+import { getAllLessonMains } from "@/services/adminLessonService";
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from "@/constants";
 import { formatDate } from "@/utils/format";
 
