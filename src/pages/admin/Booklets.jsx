@@ -33,9 +33,9 @@ import {
   deleteBooklet,
 } from "@/services/adminQuestionBookletService";
 import {
-  getAllLessons,
-  getLessonMainsByLessonId,
-  getLessonSubsByLessonMainId,
+  getLessonMainsByCategorySubId,
+  getLessonSubsByCategorySubAndMain,
+  getMikrosByCategorySubMainAndSub,
 } from "@/services/adminLessonService";
 import { getAllPublishers } from "@/services/adminPublisherService";
 import { ERROR_MESSAGES, SUCCESS_MESSAGES, getFullImageUrl } from "@/constants";
@@ -72,7 +72,9 @@ const defaultQuestionForm = () => ({
     orderIndex: i + 1,
   })),
   correctOptionKey: "A",
+  lessonMainId: "",
   lessonSubId: "",
+  lessonMikroId: "",
 });
 
 const Booklets = () => {
@@ -89,7 +91,10 @@ const Booklets = () => {
   const [modal, setModal] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({});
-  const [flatLessonSubs, setFlatLessonSubs] = useState([]);
+  const [lessonMainsForQuestion, setLessonMainsForQuestion] = useState([]);
+  const [lessonSubsForQuestion, setLessonSubsForQuestion] = useState([]);
+  const [lessonMikrosForQuestion, setLessonMikrosForQuestion] = useState([]);
+  const [hierarchyLoading, setHierarchyLoading] = useState(false);
   const [publishers, setPublishers] = useState([]);
 
   const loadCategories = useCallback(async () => {
@@ -313,42 +318,45 @@ const Booklets = () => {
     }
   };
 
-  const loadLessonSubsAndPublishers = useCallback(async () => {
+  const loadLessonMainsForQuestion = useCallback(async (categorySubId) => {
+    if (!categorySubId) return;
+    setHierarchyLoading(true);
     try {
-      const [lessons, pubList] = await Promise.all([
-        getAllLessons(),
-        getAllPublishers().then((d) => (Array.isArray(d) ? d : [])),
-      ]);
-      setPublishers(pubList);
-      const lessonList = Array.isArray(lessons) ? lessons : [];
-      const mainsPerLesson = await Promise.all(
-        lessonList.map((l) => getLessonMainsByLessonId(l.id))
-      );
-      const flatMains = lessonList.flatMap((l, i) =>
-        (mainsPerLesson[i] || []).map((m) => ({ ...m, lessonId: m.lessonId ?? l.id }))
-      );
-      const subArrays = await Promise.all(
-        flatMains.map((m) => getLessonSubsByLessonMainId(m.lessonId, m.id))
-      );
-      setFlatLessonSubs(subArrays.flat());
-    } catch {
-      setFlatLessonSubs([]);
-      setPublishers([]);
+      const mains = await getLessonMainsByCategorySubId(categorySubId);
+      setLessonMainsForQuestion(Array.isArray(mains) ? mains : []);
+      setLessonSubsForQuestion([]);
+      setLessonMikrosForQuestion([]);
+    } catch (err) {
+      toast.error(getApiError(err));
+      setLessonMainsForQuestion([]);
+      setLessonSubsForQuestion([]);
+      setLessonMikrosForQuestion([]);
+    } finally {
+      setHierarchyLoading(false);
     }
   }, []);
 
   const openAddQuestion = (slot) => {
+    const categorySubId = selectedBooklet?.categorySubId;
+    if (!categorySubId) {
+      toast.error("Kitapçık kategorisi (CategorySub) bulunamadı.");
+      return;
+    }
     setForm({
       slotId: slot.id,
       slotOrderIndex: slot.orderIndex,
       ...defaultQuestionForm(),
     });
     setModal("add-question");
-    loadLessonSubsAndPublishers();
+    loadLessonMainsForQuestion(categorySubId);
   };
 
   const openEditQuestion = (slot) => {
-    loadLessonSubsAndPublishers();
+    const categorySubId = selectedBooklet?.categorySubId;
+    if (!categorySubId) {
+      toast.error("Kitapçık kategorisi (CategorySub) bulunamadı.");
+      return;
+    }
     const stem = slot.stem ?? "";
     const rawOptions = Array.isArray(slot.options)
       ? slot.options
@@ -360,7 +368,7 @@ const Booklets = () => {
       orderIndex: o.orderIndex ?? i + 1,
     }));
     const correctOptionKey = slot.correctOptionKey ?? "A";
-    const lessonSubId = slot.lessonSubId ?? "";
+    const lessonMikroId = slot.lessonMikroId ?? "";
     if (options.length === 0) {
       OPTION_KEYS.slice(0, 4).forEach((key, i) => {
         options.push({ optionKey: key, text: "", imageUrl: "", orderIndex: i + 1 });
@@ -379,9 +387,12 @@ const Booklets = () => {
       optionImageE: null,
       options,
       correctOptionKey,
-      lessonSubId,
+      lessonMainId: "",
+      lessonSubId: "",
+      lessonMikroId,
     });
     setModal("edit-question");
+    loadLessonMainsForQuestion(categorySubId);
   };
 
   const openRemoveQuestion = (slot) => {
@@ -418,6 +429,10 @@ const Booklets = () => {
       toast.error("Soru metni zorunludur.");
       return;
     }
+    if (!form.lessonMikroId?.trim()) {
+      toast.error("Mikro konu (LessonMikro) seçiniz; soru eklerken zorunludur.");
+      return;
+    }
     const options = (form.options || []).filter((o) => (o.text ?? "").toString().trim() !== "");
     if (options.length < 2) {
       toast.error("En az 2 şık girin.");
@@ -431,7 +446,7 @@ const Booklets = () => {
       stem: form.stem.trim(),
       options: options.map((o) => ({ optionKey: o.optionKey, text: (o.text ?? "").toString().trim(), orderIndex: Number(o.orderIndex) ?? 0 })),
       correctOptionKey: form.correctOptionKey,
-      lessonSubId: form.lessonSubId || undefined,
+      lessonMikroId: form.lessonMikroId.trim(),
     };
     setSubmitting(true);
     try {
@@ -449,7 +464,7 @@ const Booklets = () => {
             orderIndex: Number(o.orderIndex) ?? 0,
           })),
           correctOptionKey: payload.correctOptionKey,
-          lessonSubId: payload.lessonSubId,
+          lessonMikroId: payload.lessonMikroId,
         });
       }
       toast.success("Soru eklendi.");
@@ -474,7 +489,7 @@ const Booklets = () => {
       stem: form.stem?.trim(),
       options: options.map((o) => ({ optionKey: o.optionKey, text: (o.text ?? "").toString().trim(), orderIndex: Number(o.orderIndex) ?? 0 })),
       correctOptionKey: form.correctOptionKey,
-      lessonSubId: form.lessonSubId || undefined,
+      lessonMikroId: form.lessonMikroId?.trim() || undefined,
     };
     setSubmitting(true);
     try {
@@ -492,7 +507,7 @@ const Booklets = () => {
             orderIndex: Number(o.orderIndex) ?? 0,
           })),
           correctOptionKey: payload.correctOptionKey,
-          lessonSubId: payload.lessonSubId,
+          lessonMikroId: payload.lessonMikroId,
         });
       }
       toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
@@ -794,17 +809,78 @@ const Booklets = () => {
                   </select>
                 </div>
                 <div className="admin-form-group">
+                  <label className="admin-label">{isEdit ? "Mikro konu (değiştirmek için seçin)" : "Ana ders (LessonMain)"}</label>
+                  <select
+                    className="admin-input"
+                    value={form.lessonMainId ?? ""}
+                    onChange={async (e) => {
+                      const mainId = e.target.value;
+                      setForm((f) => ({ ...f, lessonMainId: mainId, lessonSubId: "", lessonMikroId: "" }));
+                      setLessonSubsForQuestion([]);
+                      setLessonMikrosForQuestion([]);
+                      if (!mainId || !selectedBooklet?.categorySubId) return;
+                      setHierarchyLoading(true);
+                      try {
+                        const subs = await getLessonSubsByCategorySubAndMain(selectedBooklet.categorySubId, mainId);
+                        setLessonSubsForQuestion(Array.isArray(subs) ? subs : []);
+                      } catch {
+                        setLessonSubsForQuestion([]);
+                      } finally {
+                        setHierarchyLoading(false);
+                      }
+                    }}
+                    disabled={hierarchyLoading}
+                  >
+                    <option value="">— Seçin</option>
+                    {lessonMainsForQuestion.map((m) => (
+                      <option key={m.id} value={m.id}>{m.name} ({m.code})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="admin-form-group">
                   <label className="admin-label">Alt konu (LessonSub)</label>
                   <select
                     className="admin-input"
                     value={form.lessonSubId ?? ""}
-                    onChange={(e) => setForm((f) => ({ ...f, lessonSubId: e.target.value }))}
+                    onChange={async (e) => {
+                      const subId = e.target.value;
+                      setForm((f) => ({ ...f, lessonSubId: subId, lessonMikroId: "" }));
+                      setLessonMikrosForQuestion([]);
+                      if (!subId || !selectedBooklet?.categorySubId || !form.lessonMainId) return;
+                      setHierarchyLoading(true);
+                      try {
+                        const mikros = await getMikrosByCategorySubMainAndSub(selectedBooklet.categorySubId, form.lessonMainId, subId);
+                        setLessonMikrosForQuestion(Array.isArray(mikros) ? mikros : []);
+                      } catch {
+                        setLessonMikrosForQuestion([]);
+                      } finally {
+                        setHierarchyLoading(false);
+                      }
+                    }}
+                    disabled={hierarchyLoading || !form.lessonMainId}
                   >
-                    <option value="">—</option>
-                    {flatLessonSubs.map((s) => (
+                    <option value="">— Seçin</option>
+                    {lessonSubsForQuestion.map((s) => (
                       <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
                     ))}
                   </select>
+                </div>
+                <div className="admin-form-group">
+                  <label className={`admin-label ${!isEdit ? "admin-label-required" : ""}`}>Mikro konu (LessonMikro)</label>
+                  <select
+                    className="admin-input"
+                    value={form.lessonMikroId ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, lessonMikroId: e.target.value }))}
+                    disabled={hierarchyLoading || !form.lessonSubId}
+                  >
+                    <option value="">— Seçin</option>
+                    {lessonMikrosForQuestion.map((m) => (
+                      <option key={m.id} value={m.id}>{m.name} ({m.code})</option>
+                    ))}
+                  </select>
+                  {isEdit && form.lessonMikroId && !lessonMikrosForQuestion.some((m) => m.id === form.lessonMikroId) && (
+                    <p className="text-xs text-slate-500 mt-1">Mevcut mikro: ID {form.lessonMikroId}. Değiştirmek için yukarıdan ana ders ve alt konu seçin.</p>
+                  )}
                 </div>
               </div>
               <div className="admin-modal-footer">

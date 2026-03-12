@@ -85,6 +85,15 @@ export const getAllLessonMains = async () => {
   }
 };
 
+// ——— 2b) LessonMain by CategorySub (soru ekleme akışı) ———
+/** Kitapçık kategorisine göre ana ders listesi. GET /AdminLesson/by-category-sub/{categorySubId}/mains */
+export const getLessonMainsByCategorySubId = async (categorySubId) => {
+  const response = await adminApi.get(
+    `${BASE}/by-category-sub/${categorySubId}/mains`
+  );
+  return Array.isArray(response.data) ? response.data : [];
+};
+
 // ——— 3) LessonSub ———
 /** Ders içeriğine ait alt konular. GET /AdminLesson/{lessonId}/mains/{mainId}/subs */
 export const getLessonSubsByLessonMainId = async (lessonId, mainId) => {
@@ -121,11 +130,27 @@ export const deleteLessonSub = async (lessonId, mainId, subId) => {
   return response.data;
 };
 
+/** CategorySub + Main'e göre alt konu listesi. GET /AdminLesson/by-category-sub/{categorySubId}/mains/{mainId}/subs */
+export const getLessonSubsByCategorySubAndMain = async (categorySubId, mainId) => {
+  const response = await adminApi.get(
+    `${BASE}/by-category-sub/${categorySubId}/mains/${mainId}/subs`
+  );
+  return Array.isArray(response.data) ? response.data : [];
+};
+
 // ——— 4) LessonMikro ———
 /** Alt konuya ait mikro konular. GET /AdminLesson/.../subs/{subId}/mikros */
 export const getMikrosByLessonSubId = async (lessonId, mainId, subId) => {
   const response = await adminApi.get(
     `${BASE}/${lessonId}/mains/${mainId}/subs/${subId}/mikros`
+  );
+  return Array.isArray(response.data) ? response.data : [];
+};
+
+/** CategorySub + Main + Sub'a göre mikro konu listesi. GET /AdminLesson/by-category-sub/{categorySubId}/mains/{mainId}/subs/{subId}/mikros */
+export const getMikrosByCategorySubMainAndSub = async (categorySubId, mainId, subId) => {
+  const response = await adminApi.get(
+    `${BASE}/by-category-sub/${categorySubId}/mains/${mainId}/subs/${subId}/mikros`
   );
   return Array.isArray(response.data) ? response.data : [];
 };

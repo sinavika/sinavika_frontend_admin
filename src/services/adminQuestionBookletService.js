@@ -101,7 +101,7 @@ export const getBookletByCode = async (code) => {
 
 /**
  * Slota soru ekle (JSON). POST /api/AdminQuestionBooklet/slot/{slotId}/question
- * AddQuestionToBookletDto: stem, stemImageUrl?, options (optionKey, text, imageUrl?, orderIndex), correctOptionKey, lessonSubId?
+ * AddQuestionToBookletDto: stem, stemImageUrl?, options, correctOptionKey, lessonMikroId (zorunlu)
  */
 export const addQuestionToSlot = async (slotId, data) => {
   const body = {
@@ -113,9 +113,9 @@ export const addQuestionToSlot = async (slotId, data) => {
       orderIndex: Number(o.orderIndex) ?? 0,
     })),
     correctOptionKey: data.correctOptionKey ?? "A",
+    lessonMikroId: data.lessonMikroId,
   };
   if (data.stemImageUrl) body.stemImageUrl = data.stemImageUrl;
-  if (data.lessonSubId != null && data.lessonSubId !== "") body.lessonSubId = data.lessonSubId;
   const response = await adminApi.post(`/AdminQuestionBooklet/slot/${slotId}/question`, body);
   return response.data;
 };
@@ -134,7 +134,7 @@ export const addQuestionToSlotWithImages = async (slotId, formData) => {
 
 /**
  * Slottaki soruyu güncelle (JSON). PUT /api/AdminQuestionBooklet/slot/{slotId}/question
- * UpdateQuestionInBookletDto: stem?, stemImageUrl?, options?, correctOptionKey?, lessonSubId? (hepsi opsiyonel)
+ * UpdateQuestionInBookletDto: stem?, stemImageUrl?, options?, correctOptionKey?, lessonMikroId? (hepsi opsiyonel)
  */
 export const updateQuestionInSlot = async (slotId, data) => {
   const body = {};
@@ -147,7 +147,7 @@ export const updateQuestionInSlot = async (slotId, data) => {
     orderIndex: Number(o.orderIndex) ?? 0,
   }));
   if (data.correctOptionKey != null) body.correctOptionKey = data.correctOptionKey;
-  if (data.lessonSubId != null) body.lessonSubId = data.lessonSubId === "" ? null : data.lessonSubId;
+  if (data.lessonMikroId != null && data.lessonMikroId !== "") body.lessonMikroId = data.lessonMikroId;
   const response = await adminApi.put(`/AdminQuestionBooklet/slot/${slotId}/question`, body);
   return response.data;
 };
