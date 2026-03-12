@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "@/pages/auth/Login";
 import Dashboard from "@/pages/dashboard/Dashboard";
 import Categories from "@/pages/admin/Categories";
-import Lessons from "@/pages/admin/Lessons";
 import Coupons from "@/pages/admin/Coupons";
 import References from "@/pages/admin/References";
 import SubscriptionPackages from "@/pages/admin/SubscriptionPackages";
@@ -30,7 +29,6 @@ const AppRoutes = () => {
             <Route path="admin/score" element={<Score />} />
             <Route path="admin/students" element={<Students />} />
             <Route path="admin/students/:studentId" element={<StudentDetail />} />
-            <Route path="admin/lessons" element={<Lessons />} />
             <Route path="admin/exams" element={<Exams />} />
             <Route path="admin/booklets" element={<Booklets />} />
             <Route path="admin/coupons" element={<Coupons />} />

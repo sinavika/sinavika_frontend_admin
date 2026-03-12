@@ -4,7 +4,6 @@ import {
   ChevronLeft,
   ChevronDown,
   Calculator,
-  BookOpen,
   FileCheck,
   FileText,
   Tag,
@@ -30,7 +29,6 @@ const menuSections = [
     title: "Eğitim",
     items: [
       { icon: FileCheck, label: "Sınavlar", path: "/admin/exams" },
-      { icon: BookOpen, label: "Dersler", path: "/admin/lessons" },
     ],
   },
   {

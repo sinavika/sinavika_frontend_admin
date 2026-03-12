@@ -12,12 +12,6 @@ export const getAllLessons = async () => {
   return Array.isArray(response.data) ? response.data : [];
 };
 
-/** Ders detayı. GET /AdminLesson/{lessonId} */
-export const getLessonById = async (id) => {
-  const response = await adminApi.get(`${BASE}/${id}`);
-  return response.data;
-};
-
 /** Yeni ders. POST /AdminLesson — body: categorySubId, name, orderIndex, isActive */
 export const createLesson = async (data) => {
   const response = await adminApi.post(BASE, {
@@ -46,12 +40,6 @@ export const deleteLesson = async (id) => {
 export const getLessonMainsByLessonId = async (lessonId) => {
   const response = await adminApi.get(`${BASE}/${lessonId}/mains`);
   return Array.isArray(response.data) ? response.data : [];
-};
-
-/** Ders içeriği detayı. GET /AdminLesson/{lessonId}/mains/{mainId} */
-export const getLessonMainById = async (lessonId, mainId) => {
-  const response = await adminApi.get(`${BASE}/${lessonId}/mains/${mainId}`);
-  return response.data;
 };
 
 /** Yeni ders içeriği. POST /AdminLesson/{lessonId}/mains */
@@ -98,12 +86,6 @@ export const getLessonSubsByLessonMainId = async (lessonId, mainId) => {
   return Array.isArray(response.data) ? response.data : [];
 };
 
-/** Alt konu detayı. GET /AdminLesson/{lessonId}/mains/{mainId}/subs/{subId} */
-export const getLessonSubById = async (lessonId, mainId, subId) => {
-  const response = await adminApi.get(`${BASE}/${lessonId}/mains/${mainId}/subs/${subId}`);
-  return response.data;
-};
-
 /** Yeni alt konu. POST /AdminLesson/{lessonId}/mains/{mainId}/subs */
 export const createLessonSub = async (lessonId, mainId, data) => {
   const response = await adminApi.post(`${BASE}/${lessonId}/mains/${mainId}/subs`, {
@@ -140,14 +122,6 @@ export const getMikrosByLessonSubId = async (lessonId, mainId, subId) => {
     `${BASE}/${lessonId}/mains/${mainId}/subs/${subId}/mikros`
   );
   return Array.isArray(response.data) ? response.data : [];
-};
-
-/** Mikro konu detayı. GET /AdminLesson/.../mikros/{mikroId} */
-export const getLessonMikroById = async (lessonId, mainId, subId, mikroId) => {
-  const response = await adminApi.get(
-    `${BASE}/${lessonId}/mains/${mainId}/subs/${subId}/mikros/${mikroId}`
-  );
-  return response.data;
 };
 
 /** Yeni mikro konu. POST /AdminLesson/.../subs/{subId}/mikros */
