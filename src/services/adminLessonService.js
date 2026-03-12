@@ -35,6 +35,12 @@ export const deleteLesson = async (id) => {
   return response.data;
 };
 
+/** Tek ders detayı. GET /AdminLesson/{lessonId} */
+export const getLessonById = async (lessonId) => {
+  const response = await adminApi.get(`${BASE}/${lessonId}`);
+  return response.data;
+};
+
 // ——— 2) LessonMain ———
 /** Derse ait ders içerikleri. GET /AdminLesson/{lessonId}/mains */
 export const getLessonMainsByLessonId = async (lessonId) => {

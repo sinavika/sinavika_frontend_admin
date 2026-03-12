@@ -9,6 +9,7 @@ import SubscriptionPackages from "@/pages/admin/SubscriptionPackages";
 import Publishers from "@/pages/admin/Publishers";
 import Booklets from "@/pages/admin/Booklets";
 import Exams from "@/pages/admin/Exams";
+import Lessons from "@/pages/admin/Lessons";
 import Score from "@/pages/admin/Score";
 import Students from "@/pages/admin/Students";
 import StudentDetail from "@/pages/admin/StudentDetail";
@@ -30,6 +31,7 @@ const AppRoutes = () => {
             <Route path="admin/students" element={<Students />} />
             <Route path="admin/students/:studentId" element={<StudentDetail />} />
             <Route path="admin/exams" element={<Exams />} />
+            <Route path="admin/lessons" element={<Lessons />} />
             <Route path="admin/booklets" element={<Booklets />} />
             <Route path="admin/coupons" element={<Coupons />} />
             <Route path="admin/references" element={<References />} />

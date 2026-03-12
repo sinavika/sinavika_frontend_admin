@@ -6,6 +6,7 @@ import {
   Calculator,
   FileCheck,
   FileText,
+  BookOpen,
   Tag,
   UserCheck,
   Building2,
@@ -28,6 +29,7 @@ const menuSections = [
   {
     title: "Eğitim",
     items: [
+      { icon: BookOpen, label: "Dersler", path: "/admin/lessons" },
       { icon: FileCheck, label: "Sınavlar", path: "/admin/exams" },
     ],
   },
