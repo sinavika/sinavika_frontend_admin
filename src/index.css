@@ -434,6 +434,13 @@
   .score-page-header {
     margin-bottom: 1.25rem;
   }
+  .score-page-desc {
+    margin: 0.5rem 0 0;
+    font-size: 0.875rem;
+    color: rgb(100 116 139);
+    line-height: 1.45;
+    max-width: 42rem;
+  }
   .score-page-title {
     display: inline-flex;
     align-items: center;
@@ -457,10 +464,13 @@
     flex-wrap: wrap;
     gap: 0.5rem;
     margin-bottom: 1.5rem;
-    padding: 0.25rem;
+    padding: 0.35rem;
     background: rgb(248 250 252);
     border-radius: 0.75rem;
     border: 1px solid rgb(226 232 240);
+  }
+  .score-tab span {
+    white-space: nowrap;
   }
   .score-tab {
     display: inline-flex;
@@ -696,6 +706,95 @@
   }
   .score-scoring-modal-btn-confirm {
     min-width: 120px;
+  }
+
+  /* ——— Formül Bileşenleri & Puan Türü Koşulları sekmeleri ——— */
+  .score-filters-formula,
+  .score-filters-requirements {
+    background: linear-gradient(135deg, rgb(245 243 255) 0%, rgb(250 249 255) 100%);
+    border-color: rgb(216 211 254);
+  }
+  .score-btn-formula {
+    background: linear-gradient(180deg, rgb(129 140 248), rgb(99 102 241));
+    color: white;
+    border: none;
+  }
+  .score-btn-formula:hover {
+    background: linear-gradient(180deg, rgb(99 102 241), rgb(79 70 229));
+  }
+  .score-btn-requirement {
+    background: linear-gradient(180deg, rgb(251 146 60), rgb(234 88 12));
+    color: white;
+    border: none;
+  }
+  .score-btn-requirement:hover {
+    background: linear-gradient(180deg, rgb(234 88 12), rgb(194 65 12));
+  }
+  .score-section-formula .score-section-header {
+    background: linear-gradient(to right, rgb(238 242 255), rgb(224 231 255));
+    border-bottom: 1px solid rgb(199 210 254);
+  }
+  .score-section-requirements .score-section-header {
+    background: linear-gradient(to right, rgb(255 247 237), rgb(254 243 199));
+    border-bottom: 1px solid rgb(253 230 138);
+  }
+  .score-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 1rem 1.25rem;
+  }
+  .score-section-header-icon {
+    flex-shrink: 0;
+  }
+  .score-section-formula .score-section-header-icon {
+    color: rgb(99 102 241);
+  }
+  .score-section-requirements .score-section-header-icon {
+    color: rgb(234 88 12);
+  }
+  .score-section-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: rgb(30 41 59);
+  }
+  .score-code {
+    font-size: 0.8125rem;
+    padding: 0.15em 0.45em;
+    background: rgb(241 245 249);
+    color: rgb(71 85 105);
+    border-radius: 0.25rem;
+  }
+  .score-section-formula .score-table tbody tr:hover {
+    background: rgb(238 242 255 / 0.5);
+  }
+  .score-section-requirements .score-table tbody tr:hover {
+    background: rgb(255 247 237 / 0.6);
+  }
+  .score-badge-match {
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.2em 0.5em;
+    background: rgb(226 232 240);
+    color: rgb(71 85 105);
+    border-radius: 0.25rem;
+  }
+  .score-section-formula-empty {
+    border-color: rgb(216 211 254);
+    color: rgb(71 85 124);
+  }
+  .score-section-requirement-empty {
+    border-color: rgb(253 230 138);
+    color: rgb(120 53 15);
+  }
+  .score-modal-formula .admin-modal-header {
+    border-bottom-color: rgb(199 210 254);
+    color: rgb(55 48 163);
+  }
+  .score-modal-requirement .admin-modal-header {
+    border-bottom-color: rgb(253 230 138);
+    color: rgb(154 52 18);
   }
 
   /* ——— Öğrenci Yönetimi sayfası ——— */

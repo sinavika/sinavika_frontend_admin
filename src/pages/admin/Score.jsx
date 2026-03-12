@@ -10,6 +10,8 @@ import {
   FileCheck,
   BarChart3,
   Loader2,
+  Sigma,
+  ShieldCheck,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -33,6 +35,20 @@ import {
   updateScoreTypeWeight,
   deleteScoreTypeWeight,
 } from "@/services/adminCategoryScoreTypeWeightService";
+import {
+  getAllFormulaComponents,
+  getFormulaComponentsByScoreTypeId,
+  createFormulaComponent,
+  updateFormulaComponent,
+  deleteFormulaComponent,
+} from "@/services/adminCategoryScoringFormulaComponentService";
+import {
+  getAllTypeRequirements,
+  getTypeRequirementsByScoreTypeId,
+  createTypeRequirement,
+  updateTypeRequirement,
+  deleteTypeRequirement,
+} from "@/services/adminCategoryScoringTypeRequirementService";
 import { getAllCategories } from "@/services/adminCategoryService";
 import { getSubsByCategoryId } from "@/services/adminCategorySubService";
 import { getAllCategorySections } from "@/services/adminCategorySectionService";
@@ -53,6 +69,8 @@ const TABS = [
   { id: "profiles", label: "Puanlama Profilleri", icon: Layers },
   { id: "types", label: "Puan Türleri", icon: Scale },
   { id: "weights", label: "Puan Türü Ağırlıkları", icon: Weight },
+  { id: "formula", label: "Formül Bileşenleri", icon: Sigma },
+  { id: "requirements", label: "Puan Türü Koşulları", icon: ShieldCheck },
   { id: "scoring", label: "Skorlar (Sonuç Hesaplama)", icon: FileCheck },
 ];
 
@@ -74,6 +92,11 @@ const STANDARDIZATION_METHODS = [
   { value: 2, label: "Yöntem 2" },
 ];
 
+const MATCH_TYPES = [
+  { value: 0, label: "Tümü (All)" },
+  { value: 1, label: "Herhangi biri (Any)" },
+];
+
 const Score = () => {
   const [activeTab, setActiveTab] = useState("profiles");
 
@@ -85,12 +108,16 @@ const Score = () => {
   const [profiles, setProfiles] = useState([]);
   const [scoreTypes, setScoreTypes] = useState([]);
   const [weights, setWeights] = useState([]);
+  const [formulaComponents, setFormulaComponents] = useState([]);
+  const [requirements, setRequirements] = useState([]);
 
   // Filtreler
   const [filterCategoryId, setFilterCategoryId] = useState("");
   const [filterCategorySubId, setFilterCategorySubId] = useState("");
   const [filterProfileId, setFilterProfileId] = useState("");
   const [filterScoreTypeId, setFilterScoreTypeId] = useState("");
+  const [filterFormulaScoreTypeId, setFilterFormulaScoreTypeId] = useState("");
+  const [filterRequirementScoreTypeId, setFilterRequirementScoreTypeId] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
@@ -98,6 +125,8 @@ const Score = () => {
   const [submitting, setSubmitting] = useState(false);
   const [createModalCategoryId, setCreateModalCategoryId] = useState("");
   const [allScoreTypesForWeights, setAllScoreTypesForWeights] = useState([]);
+  const [allScoreTypesForFormula, setAllScoreTypesForFormula] = useState([]);
+  const [allScoreTypesForRequirement, setAllScoreTypesForRequirement] = useState([]);
   // Skorlar sekmesi: hesaplamaya uygun sınavlar ve işlem durumu
   const [eligibleExams, setEligibleExams] = useState([]);
   const [loadingScoring, setLoadingScoring] = useState(false);
@@ -137,6 +166,26 @@ const Score = () => {
     categorySectionId: "",
     weight: "0.5",
     inputType: 1,
+  });
+
+  // Form state — Formül bileşeni
+  const [formFormula, setFormFormula] = useState({
+    categoryScoreTypeId: "",
+    sourceCode: "",
+    sourceName: "",
+    weight: "1",
+    orderIndex: 0,
+  });
+
+  // Form state — Puan türü koşulu
+  const [formRequirement, setFormRequirement] = useState({
+    categoryScoreTypeId: "",
+    requirementGroupCode: "",
+    matchType: 0,
+    sourceCode: "",
+    sourceName: "",
+    minimumValue: "0",
+    orderIndex: 0,
   });
 
   const loadCategories = useCallback(async () => {
@@ -202,6 +251,36 @@ const Score = () => {
     }
   }, [filterScoreTypeId]);
 
+  const loadFormulaComponents = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = filterFormulaScoreTypeId
+        ? await getFormulaComponentsByScoreTypeId(filterFormulaScoreTypeId)
+        : await getAllFormulaComponents();
+      setFormulaComponents(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error(getApiError(err));
+      setFormulaComponents([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [filterFormulaScoreTypeId]);
+
+  const loadRequirements = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = filterRequirementScoreTypeId
+        ? await getTypeRequirementsByScoreTypeId(filterRequirementScoreTypeId)
+        : await getAllTypeRequirements();
+      setRequirements(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error(getApiError(err));
+      setRequirements([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [filterRequirementScoreTypeId]);
+
   const loadEligibleExams = useCallback(async () => {
     setLoadingScoring(true);
     try {
@@ -233,6 +312,14 @@ const Score = () => {
   }, [activeTab, loadWeights]);
 
   useEffect(() => {
+    if (activeTab === "formula") loadFormulaComponents();
+  }, [activeTab, loadFormulaComponents]);
+
+  useEffect(() => {
+    if (activeTab === "requirements") loadRequirements();
+  }, [activeTab, loadRequirements]);
+
+  useEffect(() => {
     if (activeTab === "scoring") loadEligibleExams();
   }, [activeTab, loadEligibleExams]);
 
@@ -245,12 +332,20 @@ const Score = () => {
     }
   }, [activeTab]);
 
-  // Weights sekmesinde tüm puan türlerini create modal için yükle
+  // Weights / Formula / Requirements sekmesinde tüm puan türlerini dropdown için yükle
   useEffect(() => {
     if (activeTab === "weights") {
       getAllScoreTypes()
         .then((data) => setAllScoreTypesForWeights(Array.isArray(data) ? data : []))
         .catch(() => setAllScoreTypesForWeights([]));
+    } else if (activeTab === "formula") {
+      getAllScoreTypes()
+        .then((data) => setAllScoreTypesForFormula(Array.isArray(data) ? data : []))
+        .catch(() => setAllScoreTypesForFormula([]));
+    } else if (activeTab === "requirements") {
+      getAllScoreTypes()
+        .then((data) => setAllScoreTypesForRequirement(Array.isArray(data) ? data : []))
+        .catch(() => setAllScoreTypesForRequirement([]));
     }
   }, [activeTab]);
 
@@ -270,6 +365,8 @@ const Score = () => {
     if (activeTab === "profiles") loadProfiles();
     else if (activeTab === "types") loadScoreTypes();
     else if (activeTab === "weights") loadWeights();
+    else if (activeTab === "formula") loadFormulaComponents();
+    else if (activeTab === "requirements") loadRequirements();
     else if (activeTab === "scoring") loadEligibleExams();
   };
 
@@ -617,6 +714,207 @@ const Score = () => {
     }
   };
 
+  // ——— Formül bileşeni CRUD ———
+  const openCreateFormula = () => {
+    setFormFormula({
+      categoryScoreTypeId: filterFormulaScoreTypeId || "",
+      sourceCode: "",
+      sourceName: "",
+      weight: "1",
+      orderIndex: formulaComponents.length,
+    });
+    setSelected(null);
+    setModal("createFormula");
+  };
+
+  const openEditFormula = (item) => {
+    setSelected(item);
+    setFormFormula({
+      categoryScoreTypeId: item.categoryScoreTypeId ?? "",
+      sourceCode: item.sourceCode ?? "",
+      sourceName: item.sourceName ?? "",
+      weight: item.weight != null ? String(item.weight) : "1",
+      orderIndex: item.orderIndex ?? 0,
+    });
+    setModal("editFormula");
+  };
+
+  const openDeleteFormula = (item) => {
+    setSelected(item);
+    setModal("deleteFormula");
+  };
+
+  const handleCreateFormula = async (e) => {
+    e.preventDefault();
+    if (!formFormula.categoryScoreTypeId) {
+      toast.error("Puan türü seçiniz.");
+      return;
+    }
+    if (!formFormula.sourceCode?.trim()) {
+      toast.error("Kaynak kodu zorunludur.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await createFormulaComponent({
+        categoryScoreTypeId: formFormula.categoryScoreTypeId,
+        sourceCode: formFormula.sourceCode.trim(),
+        sourceName: formFormula.sourceName?.trim() ?? "",
+        weight: formFormula.weight,
+        orderIndex: Number(formFormula.orderIndex) ?? 0,
+      });
+      toast.success(SUCCESS_MESSAGES.CREATE_SUCCESS);
+      setModal(null);
+      refreshCurrentTab();
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUpdateFormula = async (e) => {
+    e.preventDefault();
+    if (!selected) return;
+    setSubmitting(true);
+    try {
+      await updateFormulaComponent(selected.id, {
+        sourceCode: formFormula.sourceCode?.trim(),
+        sourceName: formFormula.sourceName?.trim(),
+        weight: formFormula.weight,
+        orderIndex: Number(formFormula.orderIndex),
+      });
+      toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
+      setModal(null);
+      refreshCurrentTab();
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteFormula = async () => {
+    if (!selected) return;
+    setSubmitting(true);
+    try {
+      await deleteFormulaComponent(selected.id);
+      toast.success(SUCCESS_MESSAGES.DELETE_SUCCESS);
+      setModal(null);
+      refreshCurrentTab();
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ——— Puan türü koşulu CRUD ———
+  const openCreateRequirement = () => {
+    setFormRequirement({
+      categoryScoreTypeId: filterRequirementScoreTypeId || "",
+      requirementGroupCode: "",
+      matchType: 0,
+      sourceCode: "",
+      sourceName: "",
+      minimumValue: "0",
+      orderIndex: requirements.length,
+    });
+    setSelected(null);
+    setModal("createRequirement");
+  };
+
+  const openEditRequirement = (item) => {
+    setSelected(item);
+    setFormRequirement({
+      categoryScoreTypeId: item.categoryScoreTypeId ?? "",
+      requirementGroupCode: item.requirementGroupCode ?? "",
+      matchType: item.matchType ?? 0,
+      sourceCode: item.sourceCode ?? "",
+      sourceName: item.sourceName ?? "",
+      minimumValue: item.minimumValue != null ? String(item.minimumValue) : "0",
+      orderIndex: item.orderIndex ?? 0,
+    });
+    setModal("editRequirement");
+  };
+
+  const openDeleteRequirement = (item) => {
+    setSelected(item);
+    setModal("deleteRequirement");
+  };
+
+  const handleCreateRequirement = async (e) => {
+    e.preventDefault();
+    if (!formRequirement.categoryScoreTypeId) {
+      toast.error("Puan türü seçiniz.");
+      return;
+    }
+    if (!formRequirement.requirementGroupCode?.trim()) {
+      toast.error("Koşul grubu kodu zorunludur.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await createTypeRequirement({
+        categoryScoreTypeId: formRequirement.categoryScoreTypeId,
+        requirementGroupCode: formRequirement.requirementGroupCode.trim(),
+        matchType: Number(formRequirement.matchType),
+        sourceCode: formRequirement.sourceCode?.trim() ?? "",
+        sourceName: formRequirement.sourceName?.trim() ?? "",
+        minimumValue: formRequirement.minimumValue,
+        orderIndex: Number(formRequirement.orderIndex) ?? 0,
+      });
+      toast.success(SUCCESS_MESSAGES.CREATE_SUCCESS);
+      setModal(null);
+      refreshCurrentTab();
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUpdateRequirement = async (e) => {
+    e.preventDefault();
+    if (!selected) return;
+    setSubmitting(true);
+    try {
+      await updateTypeRequirement(selected.id, {
+        requirementGroupCode: formRequirement.requirementGroupCode?.trim(),
+        matchType: Number(formRequirement.matchType),
+        sourceCode: formRequirement.sourceCode?.trim(),
+        sourceName: formRequirement.sourceName?.trim(),
+        minimumValue: formRequirement.minimumValue,
+        orderIndex: Number(formRequirement.orderIndex),
+      });
+      toast.success(SUCCESS_MESSAGES.UPDATE_SUCCESS);
+      setModal(null);
+      refreshCurrentTab();
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteRequirement = async () => {
+    if (!selected) return;
+    setSubmitting(true);
+    try {
+      await deleteTypeRequirement(selected.id);
+      toast.success(SUCCESS_MESSAGES.DELETE_SUCCESS);
+      setModal(null);
+      refreshCurrentTab();
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const matchTypeLabel = (val) =>
+    MATCH_TYPES.find((x) => x.value === val)?.label ?? val;
+
   const inputTypeLabel = (val) =>
     INPUT_TYPES.find((x) => x.value === val)?.label ?? val;
 
@@ -653,6 +951,9 @@ const Score = () => {
           <Calculator size={28} className="text-emerald-600 score-page-title-icon" />
           Kategori Puanlama (Score)
         </h1>
+        <p className="score-page-desc">
+          Profiller, puan türleri, ağırlıklar, formül bileşenleri ve puan türü koşullarını yönetin; sonuç hesaplama için Skorlar sekmesini kullanın.
+        </p>
       </div>
 
       <div className="score-tabs">
@@ -966,6 +1267,180 @@ const Score = () => {
                               className="admin-btn admin-btn-ghost admin-btn-icon text-red-600 hover:bg-red-50"
                               title="Sil"
                             >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ——— Sekme: Formül Bileşenleri ——— */}
+      {activeTab === "formula" && (
+        <>
+          <div className="score-filters score-filters-formula">
+            <div className="admin-form-group mb-0">
+              <label className="admin-label">Puan Türü</label>
+              <select
+                className="admin-input score-filter-select"
+                value={filterFormulaScoreTypeId}
+                onChange={(e) => setFilterFormulaScoreTypeId(e.target.value)}
+              >
+                <option value="">Tümü</option>
+                {(allScoreTypesForFormula.length ? allScoreTypesForFormula : scoreTypes).map((st) => (
+                  <option key={st.id} value={st.id}>
+                    {st.name} ({st.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="score-filters-actions">
+              <button
+                type="button"
+                onClick={openCreateFormula}
+                className="admin-btn admin-btn-primary score-btn-formula"
+              >
+                <Sigma size={18} />
+                Yeni Formül Bileşeni
+              </button>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="admin-loading-center">
+              <span className="admin-spinner" />
+            </div>
+          ) : formulaComponents.length === 0 ? (
+            <div className="admin-empty-state score-empty-state score-section-formula-empty">
+              {filterFormulaScoreTypeId
+                ? "Bu puan türüne ait formül bileşeni bulunamadı."
+                : "Henüz formül bileşeni yok. \"Yeni Formül Bileşeni\" ile ekleyebilirsiniz."}
+            </div>
+          ) : (
+            <div className="admin-card admin-card-elevated score-card score-section-formula">
+              <div className="score-section-header">
+                <Sigma size={20} className="score-section-header-icon" />
+                <h2 className="score-section-title">Formül bileşenleri</h2>
+              </div>
+              <div className="admin-table-wrapper">
+                <table className="admin-table score-table">
+                  <thead>
+                    <tr>
+                      <th>Kaynak Kod</th>
+                      <th>Kaynak Ad</th>
+                      <th>Ağırlık</th>
+                      <th>Sıra</th>
+                      <th className="text-right">İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {formulaComponents.map((item) => (
+                      <tr key={item.id}>
+                        <td className="font-medium"><code className="score-code">{item.sourceCode}</code></td>
+                        <td>{item.sourceName ?? "—"}</td>
+                        <td>{item.weight ?? "—"}</td>
+                        <td>{item.orderIndex ?? 0}</td>
+                        <td className="text-right">
+                          <div className="score-row-actions">
+                            <button type="button" onClick={() => openEditFormula(item)} className="admin-btn admin-btn-ghost admin-btn-icon" title="Düzenle">
+                              <Pencil size={18} />
+                            </button>
+                            <button type="button" onClick={() => openDeleteFormula(item)} className="admin-btn admin-btn-ghost admin-btn-icon text-red-600 hover:bg-red-50" title="Sil">
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ——— Sekme: Puan Türü Koşulları ——— */}
+      {activeTab === "requirements" && (
+        <>
+          <div className="score-filters score-filters-requirements">
+            <div className="admin-form-group mb-0">
+              <label className="admin-label">Puan Türü</label>
+              <select
+                className="admin-input score-filter-select"
+                value={filterRequirementScoreTypeId}
+                onChange={(e) => setFilterRequirementScoreTypeId(e.target.value)}
+              >
+                <option value="">Tümü</option>
+                {(allScoreTypesForRequirement.length ? allScoreTypesForRequirement : scoreTypes).map((st) => (
+                  <option key={st.id} value={st.id}>
+                    {st.name} ({st.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="score-filters-actions">
+              <button
+                type="button"
+                onClick={openCreateRequirement}
+                className="admin-btn admin-btn-primary score-btn-requirement"
+              >
+                <ShieldCheck size={18} />
+                Yeni Koşul
+              </button>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="admin-loading-center">
+              <span className="admin-spinner" />
+            </div>
+          ) : requirements.length === 0 ? (
+            <div className="admin-empty-state score-empty-state score-section-requirement-empty">
+              {filterRequirementScoreTypeId
+                ? "Bu puan türüne ait koşul bulunamadı."
+                : "Henüz puan türü koşulu yok. \"Yeni Koşul\" ile ekleyebilirsiniz."}
+            </div>
+          ) : (
+            <div className="admin-card admin-card-elevated score-card score-section-requirements">
+              <div className="score-section-header">
+                <ShieldCheck size={20} className="score-section-header-icon" />
+                <h2 className="score-section-title">Puan türü koşulları</h2>
+              </div>
+              <div className="admin-table-wrapper">
+                <table className="admin-table score-table">
+                  <thead>
+                    <tr>
+                      <th>Grup Kodu</th>
+                      <th>Eşleşme</th>
+                      <th>Kaynak Kod</th>
+                      <th>Kaynak Ad</th>
+                      <th>Min. Değer</th>
+                      <th>Sıra</th>
+                      <th className="text-right">İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {requirements.map((item) => (
+                      <tr key={item.id}>
+                        <td className="font-medium"><code className="score-code">{item.requirementGroupCode}</code></td>
+                        <td><span className="score-badge-match">{matchTypeLabel(item.matchType)}</span></td>
+                        <td><code className="score-code">{item.sourceCode ?? "—"}</code></td>
+                        <td>{item.sourceName ?? "—"}</td>
+                        <td>{item.minimumValue ?? "—"}</td>
+                        <td>{item.orderIndex ?? 0}</td>
+                        <td className="text-right">
+                          <div className="score-row-actions">
+                            <button type="button" onClick={() => openEditRequirement(item)} className="admin-btn admin-btn-ghost admin-btn-icon" title="Düzenle">
+                              <Pencil size={18} />
+                            </button>
+                            <button type="button" onClick={() => openDeleteRequirement(item)} className="admin-btn admin-btn-ghost admin-btn-icon text-red-600 hover:bg-red-50" title="Sil">
                               <Trash2 size={18} />
                             </button>
                           </div>
@@ -1875,6 +2350,248 @@ const Score = () => {
               >
                 {submitting ? "İşleniyor…" : "Sil"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ——— Modals: Formül bileşeni ——— */}
+      {modal === "createFormula" && (
+        <div className="admin-modal-backdrop" onClick={() => setModal(null)}>
+          <div className="admin-modal admin-modal-lg score-modal-formula" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <Sigma size={20} className="mr-2" />
+              Yeni Formül Bileşeni
+            </div>
+            <form onSubmit={handleCreateFormula}>
+              <div className="admin-modal-body score-modal-body">
+                <div className="admin-form-group">
+                  <label className="admin-label admin-label-required">Puan Türü</label>
+                  <select
+                    className="admin-input"
+                    value={formFormula.categoryScoreTypeId}
+                    onChange={(e) => setFormFormula((f) => ({ ...f, categoryScoreTypeId: e.target.value }))}
+                    required
+                  >
+                    <option value="">Seçin</option>
+                    {(allScoreTypesForFormula.length ? allScoreTypesForFormula : scoreTypes).map((st) => (
+                      <option key={st.id} value={st.id}>{st.name} ({st.code})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label admin-label-required">Kaynak kodu</label>
+                    <input type="text" className="admin-input" value={formFormula.sourceCode} onChange={(e) => setFormFormula((f) => ({ ...f, sourceCode: e.target.value }))} placeholder="MAT, FEN" required />
+                  </div>
+                  <div className="admin-form-group">
+                    <label className="admin-label">Kaynak adı</label>
+                    <input type="text" className="admin-input" value={formFormula.sourceName} onChange={(e) => setFormFormula((f) => ({ ...f, sourceName: e.target.value }))} placeholder="Matematik Net" />
+                  </div>
+                </div>
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label">Ağırlık</label>
+                    <input type="number" step="0.01" min="0" className="admin-input" value={formFormula.weight} onChange={(e) => setFormFormula((f) => ({ ...f, weight: e.target.value }))} />
+                  </div>
+                  <div className="admin-form-group">
+                    <label className="admin-label">Sıra</label>
+                    <input type="number" min="0" className="admin-input" value={formFormula.orderIndex} onChange={(e) => setFormFormula((f) => ({ ...f, orderIndex: parseInt(e.target.value, 10) || 0 }))} />
+                  </div>
+                </div>
+              </div>
+              <div className="admin-modal-footer">
+                <button type="button" onClick={() => setModal(null)} className="admin-btn admin-btn-secondary">İptal</button>
+                <button type="submit" disabled={submitting} className="admin-btn admin-btn-primary">{submitting ? "Kaydediliyor…" : "Oluştur"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {modal === "editFormula" && selected && (
+        <div className="admin-modal-backdrop" onClick={() => setModal(null)}>
+          <div className="admin-modal admin-modal-lg score-modal-formula" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">Formül Bileşenini Düzenle</div>
+            <form onSubmit={handleUpdateFormula}>
+              <div className="admin-modal-body score-modal-body">
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label admin-label-required">Kaynak kodu</label>
+                    <input type="text" className="admin-input" value={formFormula.sourceCode} onChange={(e) => setFormFormula((f) => ({ ...f, sourceCode: e.target.value }))} required />
+                  </div>
+                  <div className="admin-form-group">
+                    <label className="admin-label">Kaynak adı</label>
+                    <input type="text" className="admin-input" value={formFormula.sourceName} onChange={(e) => setFormFormula((f) => ({ ...f, sourceName: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label">Ağırlık</label>
+                    <input type="number" step="0.01" min="0" className="admin-input" value={formFormula.weight} onChange={(e) => setFormFormula((f) => ({ ...f, weight: e.target.value }))} />
+                  </div>
+                  <div className="admin-form-group">
+                    <label className="admin-label">Sıra</label>
+                    <input type="number" min="0" className="admin-input" value={formFormula.orderIndex} onChange={(e) => setFormFormula((f) => ({ ...f, orderIndex: parseInt(e.target.value, 10) || 0 }))} />
+                  </div>
+                </div>
+              </div>
+              <div className="admin-modal-footer">
+                <button type="button" onClick={() => setModal(null)} className="admin-btn admin-btn-secondary">İptal</button>
+                <button type="submit" disabled={submitting} className="admin-btn admin-btn-primary">{submitting ? "Güncelleniyor…" : "Güncelle"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {modal === "deleteFormula" && selected && (
+        <div className="admin-modal-backdrop" onClick={() => setModal(null)}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">Formül Bileşenini Sil</div>
+            <div className="admin-modal-body">
+              <p className="text-slate-600"><strong>{selected.sourceName || selected.sourceCode}</strong> bileşenini silmek istediğinize emin misiniz?</p>
+            </div>
+            <div className="admin-modal-footer">
+              <button type="button" onClick={() => setModal(null)} className="admin-btn admin-btn-secondary">İptal</button>
+              <button type="button" onClick={handleDeleteFormula} disabled={submitting} className="admin-btn admin-btn-danger">{submitting ? "İşleniyor…" : "Sil"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ——— Modals: Puan türü koşulu ——— */}
+      {modal === "createRequirement" && (
+        <div className="admin-modal-backdrop" onClick={() => setModal(null)}>
+          <div className="admin-modal admin-modal-lg score-modal-requirement" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <ShieldCheck size={20} className="mr-2" />
+              Yeni Puan Türü Koşulu
+            </div>
+            <form onSubmit={handleCreateRequirement}>
+              <div className="admin-modal-body score-modal-body">
+                <div className="admin-form-group">
+                  <label className="admin-label admin-label-required">Puan Türü</label>
+                  <select
+                    className="admin-input"
+                    value={formRequirement.categoryScoreTypeId}
+                    onChange={(e) => setFormRequirement((f) => ({ ...f, categoryScoreTypeId: e.target.value }))}
+                    required
+                  >
+                    <option value="">Seçin</option>
+                    {(allScoreTypesForRequirement.length ? allScoreTypesForRequirement : scoreTypes).map((st) => (
+                      <option key={st.id} value={st.id}>{st.name} ({st.code})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label admin-label-required">Koşul grubu kodu</label>
+                  <input type="text" className="admin-input" value={formRequirement.requirementGroupCode} onChange={(e) => setFormRequirement((f) => ({ ...f, requirementGroupCode: e.target.value }))} placeholder="MIN_TYT" required />
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label">Eşleşme tipi</label>
+                  <select
+                    className="admin-input"
+                    value={formRequirement.matchType}
+                    onChange={(e) => setFormRequirement((f) => ({ ...f, matchType: parseInt(e.target.value, 10) }))}
+                  >
+                    {MATCH_TYPES.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label">Kaynak kodu</label>
+                    <input type="text" className="admin-input" value={formRequirement.sourceCode} onChange={(e) => setFormRequirement((f) => ({ ...f, sourceCode: e.target.value }))} placeholder="TYT_TR" />
+                  </div>
+                  <div className="admin-form-group">
+                    <label className="admin-label">Kaynak adı</label>
+                    <input type="text" className="admin-input" value={formRequirement.sourceName} onChange={(e) => setFormRequirement((f) => ({ ...f, sourceName: e.target.value }))} placeholder="TYT Türkçe" />
+                  </div>
+                </div>
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label">Minimum değer</label>
+                    <input type="number" step="0.01" className="admin-input" value={formRequirement.minimumValue} onChange={(e) => setFormRequirement((f) => ({ ...f, minimumValue: e.target.value }))} />
+                  </div>
+                  <div className="admin-form-group">
+                    <label className="admin-label">Sıra</label>
+                    <input type="number" min="0" className="admin-input" value={formRequirement.orderIndex} onChange={(e) => setFormRequirement((f) => ({ ...f, orderIndex: parseInt(e.target.value, 10) || 0 }))} />
+                  </div>
+                </div>
+              </div>
+              <div className="admin-modal-footer">
+                <button type="button" onClick={() => setModal(null)} className="admin-btn admin-btn-secondary">İptal</button>
+                <button type="submit" disabled={submitting} className="admin-btn admin-btn-primary">{submitting ? "Kaydediliyor…" : "Oluştur"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {modal === "editRequirement" && selected && (
+        <div className="admin-modal-backdrop" onClick={() => setModal(null)}>
+          <div className="admin-modal admin-modal-lg score-modal-requirement" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">Koşulu Düzenle</div>
+            <form onSubmit={handleUpdateRequirement}>
+              <div className="admin-modal-body score-modal-body">
+                <div className="admin-form-group">
+                  <label className="admin-label admin-label-required">Koşul grubu kodu</label>
+                  <input type="text" className="admin-input" value={formRequirement.requirementGroupCode} onChange={(e) => setFormRequirement((f) => ({ ...f, requirementGroupCode: e.target.value }))} required />
+                </div>
+                <div className="admin-form-group">
+                  <label className="admin-label">Eşleşme tipi</label>
+                  <select
+                    className="admin-input"
+                    value={formRequirement.matchType}
+                    onChange={(e) => setFormRequirement((f) => ({ ...f, matchType: parseInt(e.target.value, 10) }))}
+                  >
+                    {MATCH_TYPES.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label">Kaynak kodu</label>
+                    <input type="text" className="admin-input" value={formRequirement.sourceCode} onChange={(e) => setFormRequirement((f) => ({ ...f, sourceCode: e.target.value }))} />
+                  </div>
+                  <div className="admin-form-group">
+                    <label className="admin-label">Kaynak adı</label>
+                    <input type="text" className="admin-input" value={formRequirement.sourceName} onChange={(e) => setFormRequirement((f) => ({ ...f, sourceName: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="admin-form-row admin-form-row-2">
+                  <div className="admin-form-group">
+                    <label className="admin-label">Minimum değer</label>
+                    <input type="number" step="0.01" className="admin-input" value={formRequirement.minimumValue} onChange={(e) => setFormRequirement((f) => ({ ...f, minimumValue: e.target.value }))} />
+                  </div>
+                  <div className="admin-form-group">
+                    <label className="admin-label">Sıra</label>
+                    <input type="number" min="0" className="admin-input" value={formRequirement.orderIndex} onChange={(e) => setFormRequirement((f) => ({ ...f, orderIndex: parseInt(e.target.value, 10) || 0 }))} />
+                  </div>
+                </div>
+              </div>
+              <div className="admin-modal-footer">
+                <button type="button" onClick={() => setModal(null)} className="admin-btn admin-btn-secondary">İptal</button>
+                <button type="submit" disabled={submitting} className="admin-btn admin-btn-primary">{submitting ? "Güncelleniyor…" : "Güncelle"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {modal === "deleteRequirement" && selected && (
+        <div className="admin-modal-backdrop" onClick={() => setModal(null)}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">Koşulu Sil</div>
+            <div className="admin-modal-body">
+              <p className="text-slate-600"><strong>{selected.requirementGroupCode}</strong> — {selected.sourceName || selected.sourceCode} koşulunu silmek istediğinize emin misiniz?</p>
+            </div>
+            <div className="admin-modal-footer">
+              <button type="button" onClick={() => setModal(null)} className="admin-btn admin-btn-secondary">İptal</button>
+              <button type="button" onClick={handleDeleteRequirement} disabled={submitting} className="admin-btn admin-btn-danger">{submitting ? "İşleniyor…" : "Sil"}</button>
             </div>
           </div>
         </div>
