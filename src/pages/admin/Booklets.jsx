@@ -196,6 +196,7 @@ const Booklets = () => {
     setForm({
       name: "",
       publisherId: "",
+      slotAllSections: false,
       categorySectionIds: [],
     });
     setModal("create-booklet");
@@ -207,23 +208,33 @@ const Booklets = () => {
       toast.error("Alt kategori seçin ve kitapçık adı girin.");
       return;
     }
+    const categorySectionIds =
+      Array.isArray(form.categorySectionIds) && form.categorySectionIds.length > 0
+        ? form.categorySectionIds
+        : undefined;
+    const categoryFeatureId =
+      form.slotAllSections && feature?.id ? feature.id : undefined;
     setSubmitting(true);
     try {
       const created = await createBooklet({
         categorySubId: selectedCategorySubId,
         name: form.name.trim(),
         publisherId: form.publisherId || undefined,
-        categorySectionIds:
-          Array.isArray(form.categorySectionIds) && form.categorySectionIds.length > 0
-            ? form.categorySectionIds
-            : undefined,
+        categoryFeatureId,
+        categorySectionIds,
       });
-      toast.success("Kitapçık oluşturuldu.");
+      const slotCount = created?.slots?.length ?? 0;
+      toast.success(slotCount > 0 ? `Kitapçık oluşturuldu. ${slotCount} slot eklendi.` : "Kitapçık oluşturuldu.");
       setModal(null);
       loadBooklets();
       if (created?.id) setSelectedBooklet(created);
     } catch (err) {
-      toast.error(getApiError(err));
+      const msg = getApiError(err);
+      if (typeof msg === "string" && msg.includes("Bölüm bulunamadı")) {
+        toast.error("Seçilen bölümlerden biri artık geçerli değil; lütfen bölüm listesini yenileyip tekrar seçin.");
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -600,8 +611,21 @@ const Booklets = () => {
                   </select>
                 </div>
                 <div className="admin-form-group">
-                  <label className="admin-label">Bölümler</label>
-                  <p className="text-xs text-slate-500 mb-2">Seçilen bölümler için her bölümün soru sayısı kadar slot oluşturulur. Boş bırakılırsa sonradan ekleyebilirsiniz.</p>
+                  <span className="admin-label block mb-2">Slot oluşturma</span>
+                  <p className="text-xs text-slate-500 mb-3">İsterseniz tüm bölümler veya sadece seçtiğiniz bölümler için her bölümün soru sayısı kadar slot oluşturulur. Hiçbiri seçilmezse kitapçık boş oluşur; sonradan ekleyebilirsiniz.</p>
+                  {feature?.id && (
+                    <label className="flex items-center gap-2 cursor-pointer mb-3 p-3 rounded-lg border border-slate-200 hover:bg-slate-50">
+                      <input
+                        type="checkbox"
+                        checked={!!form.slotAllSections}
+                        onChange={(e) => setForm((f) => ({ ...f, slotAllSections: e.target.checked }))}
+                        className="rounded border-slate-300 text-emerald-600"
+                      />
+                      <span className="text-sm font-medium text-slate-700">Tüm bölümler için slot oluştur</span>
+                      <span className="text-slate-500 text-sm">({feature.name ?? "bu özellik"})</span>
+                    </label>
+                  )}
+                  <p className="text-xs text-slate-500 mb-1.5">Belirli bölümler (isteğe bağlı; tüm bölümlerle birlikte seçilebilir):</p>
                   <div className="border border-slate-200 rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
                     {sections.length === 0 ? (
                       <p className="text-sm text-slate-500">Bu alt kategoriye ait bölüm yok.</p>

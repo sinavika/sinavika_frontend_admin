@@ -12,8 +12,11 @@ export const getBookletList = async () => {
 };
 
 /**
- * Kitapçık oluştur. POST /api/AdminQuestionBooklet
- * QuestionBookletCreateDto: categorySubId, name, publisherId? (opsiyonel), categorySectionIds? (opsiyonel)
+ * Kitapçık oluştur. POST /api/AdminQuestionBooklet/create
+ * QuestionBookletCreateDto: categorySubId, name, publisherId?, categoryFeatureId?, categorySectionIds?
+ * - categoryFeatureId: bu özelliğin tüm bölümleri için slot oluşturulur.
+ * - categorySectionIds: seçilen bölümlerin CategorySection.Id listesi; her bölüm için QuestionCount kadar slot.
+ * - İkisi birlikte gönderilirse backend birleştirir (tekrarsız). Code otomatik atanır.
  */
 export const createBooklet = async (data) => {
   const body = {
@@ -21,10 +24,11 @@ export const createBooklet = async (data) => {
     name: data.name?.trim() ?? "",
   };
   if (data.publisherId != null && data.publisherId !== "") body.publisherId = data.publisherId;
+  if (data.categoryFeatureId != null && data.categoryFeatureId !== "") body.categoryFeatureId = data.categoryFeatureId;
   if (data.categorySectionIds != null && data.categorySectionIds.length > 0) {
     body.categorySectionIds = data.categorySectionIds;
   }
-  const response = await adminApi.post("/AdminQuestionBooklet", body);
+  const response = await adminApi.post("/AdminQuestionBooklet/create", body);
   return response.data;
 };
 
