@@ -12,6 +12,7 @@ import {
   Building2,
   CreditCard,
   Users,
+  Headphones,
 } from "lucide-react";
 import SinarikaLogo from "@/components/ui/SinarikaLogo";
 import { useState } from "react";
@@ -57,6 +58,12 @@ const menuSections = [
     title: "Kullanıcı Yönetimi",
     items: [
       { icon: Users, label: "Öğrenci Yönetimi", path: "/admin/students" },
+    ],
+  },
+  {
+    title: "Destek",
+    items: [
+      { icon: Headphones, label: "Destek Merkezi", path: "/admin/support" },
     ],
   },
 ];

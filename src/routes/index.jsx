@@ -13,6 +13,7 @@ import Lessons from "@/pages/admin/Lessons";
 import Score from "@/pages/admin/Score";
 import Students from "@/pages/admin/Students";
 import StudentDetail from "@/pages/admin/StudentDetail";
+import Support from "@/pages/admin/Support";
 import AdminRouteWrapper from "@/components/AdminRouteWrapper";
 
 const AppRoutes = () => {
@@ -30,6 +31,7 @@ const AppRoutes = () => {
             <Route path="admin/score" element={<Score />} />
             <Route path="admin/students" element={<Students />} />
             <Route path="admin/students/:studentId" element={<StudentDetail />} />
+            <Route path="admin/support" element={<Support />} />
             <Route path="admin/exams" element={<Exams />} />
             <Route path="admin/lessons" element={<Lessons />} />
             <Route path="admin/booklets" element={<Booklets />} />
