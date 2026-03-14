@@ -1,6 +1,5 @@
 // AdminQuestionBookletController — api/AdminQuestionBooklet
-// Rapor: docs/API-EXAM-VE-BOOKLET-ENDPOINT-RAPORU.md, API-QUESTIONS-CONTROLLERS-RAPORU.md
-// QuestionBookletDto: publisherId, status eklendi. AddQuestion/UpdateQuestion: PublisherId kaldırıldı.
+// Rapor: docs/AdminQuestionBookletController-API-Raporu.md
 import adminApi from "@/api/adminApi";
 
 /**
@@ -54,16 +53,6 @@ export const createSlotsForFeature = async (questionBookletId, categoryFeatureId
 };
 
 /**
- * Bölüme göre slotları listele. GET /api/AdminQuestionBooklet/slots/by-section/{categorySectionId}
- */
-export const getSlotsBySectionId = async (categorySectionId) => {
-  const response = await adminApi.get(
-    `/AdminQuestionBooklet/slots/by-section/${categorySectionId}`
-  );
-  return Array.isArray(response.data) ? response.data : [];
-};
-
-/**
  * Alt kategoriye göre kitapçıkları listele. GET /api/AdminQuestionBooklet/by-category-sub/{categorySubId}
  */
 export const getBookletsByCategorySubId = async (categorySubId) => {
@@ -78,24 +67,6 @@ export const getBookletsByCategorySubId = async (categorySubId) => {
  */
 export const getBookletById = async (bookletId) => {
   const response = await adminApi.get(`/AdminQuestionBooklet/booklet/${bookletId}`);
-  return response.data;
-};
-
-/**
- * Kitapçık slotunu Id ile getir. GET /api/AdminQuestionBooklet/slot/{slotId}
- */
-export const getSlotById = async (slotId) => {
-  const response = await adminApi.get(`/AdminQuestionBooklet/slot/${slotId}`);
-  return response.data;
-};
-
-/**
- * Kitapçığı Code ile getir. GET /api/AdminQuestionBooklet/by-code/{code}
- */
-export const getBookletByCode = async (code) => {
-  const response = await adminApi.get(
-    `/AdminQuestionBooklet/by-code/${encodeURIComponent(code)}`
-  );
   return response.data;
 };
 

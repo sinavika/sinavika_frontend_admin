@@ -9,8 +9,11 @@ const adminApi = axios.create({
   },
 });
 
-// Her istekten önce token ekle
+// Her istekten önce token ekle + endpoint log
 adminApi.interceptors.request.use((config) => {
+  const method = (config.method || "get").toUpperCase();
+  const url = config.baseURL && config.url ? `${config.baseURL}${config.url}` : config.url || "";
+  console.log(`[API] ${method} ${url}`);
   const token = localStorage.getItem(STORAGE_KEYS.ADMIN_TOKEN);
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

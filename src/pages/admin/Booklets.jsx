@@ -48,6 +48,7 @@ const getApiError = (err) =>
 
 const OPTION_KEYS = ["A", "B", "C", "D", "E"];
 
+// API: 0–4. Status 3 ve 4 iken slot/soru ekleme ve içerik değişikliği kilitli
 const BOOKLET_STATUS_LABELS = {
   0: "Taslak",
   1: "Hazırlanıyor",
@@ -188,6 +189,10 @@ const Booklets = () => {
   }, []);
 
   const openCreateBooklet = () => {
+    if (!selectedCategorySubId) {
+      toast.error("Önce alt kategori seçin.");
+      return;
+    }
     setForm({
       name: "",
       publisherId: "",
@@ -547,10 +552,14 @@ const Booklets = () => {
     slots: g.slots.sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0)),
   }));
 
+  // API: Status 3 (Tamamlandı) ve 4 (SınavAşamasında) iken slot/soru ekleme ve içerik değişikliği kilitli
+  const isBookletLocked = selectedBooklet && (selectedBooklet.status === 3 || selectedBooklet.status === 4);
+
   const renderModal = () => {
     if (!modal) return null;
 
     if (modal === "create-booklet") {
+      const categorySubName = categorySubs.find((s) => s.id === selectedCategorySubId)?.name ?? "—";
       return (
         <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
           <div className="admin-modal admin-modal-lg" onClick={(e) => e.stopPropagation()}>
@@ -562,11 +571,10 @@ const Booklets = () => {
             </div>
             <form onSubmit={handleCreateBooklet}>
               <div className="admin-modal-body space-y-4">
-                {selectedCategorySubId && (
-                  <p className="text-sm text-slate-600">
-                    Alt kategori: <strong>{categorySubs.find((s) => s.id === selectedCategorySubId)?.name ?? selectedCategorySubId}</strong>
-                  </p>
-                )}
+                <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3">
+                  <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Alt kategori (CategorySub)</span>
+                  <p className="text-slate-800 font-medium mt-0.5">{categorySubName}</p>
+                </div>
                 <div className="admin-form-group">
                   <label className="admin-label admin-label-required">Kitapçık adı</label>
                   <input
@@ -574,47 +582,47 @@ const Booklets = () => {
                     className="admin-input"
                     value={form.name ?? ""}
                     onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                    placeholder="Örn. TYT Deneme Kitapçık 1"
+                    placeholder="Örn. TYT Deneme Kitapçığı 1"
                     required
                   />
                 </div>
                 <div className="admin-form-group">
-                  <label className="admin-label">Yayınevi (opsiyonel)</label>
+                  <label className="admin-label">Yayınevi</label>
                   <select
                     className="admin-input"
                     value={form.publisherId ?? ""}
                     onChange={(e) => setForm((f) => ({ ...f, publisherId: e.target.value }))}
                   >
-                    <option value="">—</option>
+                    <option value="">Seçin (opsiyonel)</option>
                     {publishers.map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                   </select>
                 </div>
                 <div className="admin-form-group">
-                  <label className="admin-label">Bölümler (opsiyonel — seçilen bölümler için slot oluşturulur)</label>
-                  <div className="border border-slate-200 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
-                    {sections.map((sec) => (
-                      <label key={sec.id} className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={(form.categorySectionIds || []).includes(sec.id)}
-                          onChange={(e) => {
-                            const ids = form.categorySectionIds || [];
-                            setForm((f) => ({
-                              ...f,
-                              categorySectionIds: e.target.checked
-                                ? [...ids, sec.id]
-                                : ids.filter((i) => i !== sec.id),
-                            }));
-                          }}
-                          className="rounded border-slate-300 text-emerald-600"
-                        />
-                        <span className="text-sm">{sec.name} (soru: {sec.questionCount ?? 0})</span>
-                      </label>
-                    ))}
-                    {sections.length === 0 && (
+                  <label className="admin-label">Bölümler</label>
+                  <p className="text-xs text-slate-500 mb-2">Seçilen bölümler için her bölümün soru sayısı kadar slot oluşturulur. Boş bırakılırsa sonradan ekleyebilirsiniz.</p>
+                  <div className="border border-slate-200 rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
+                    {sections.length === 0 ? (
                       <p className="text-sm text-slate-500">Bu alt kategoriye ait bölüm yok.</p>
+                    ) : (
+                      sections.map((sec) => (
+                        <label key={sec.id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 -mx-1 px-1 py-1 rounded">
+                          <input
+                            type="checkbox"
+                            checked={(form.categorySectionIds || []).includes(sec.id)}
+                            onChange={(e) => {
+                              const ids = form.categorySectionIds || [];
+                              setForm((f) => ({
+                                ...f,
+                                categorySectionIds: e.target.checked ? [...ids, sec.id] : ids.filter((i) => i !== sec.id),
+                              }));
+                            }}
+                            className="rounded border-slate-300 text-emerald-600"
+                          />
+                          <span className="text-sm">{sec.name} <span className="text-slate-400">({sec.questionCount ?? 0} soru)</span></span>
+                        </label>
+                      ))
                     )}
                   </div>
                 </div>
@@ -622,7 +630,7 @@ const Booklets = () => {
               <div className="admin-modal-footer">
                 <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={submitting}>İptal</button>
                 <button type="submit" className="admin-btn admin-btn-primary" disabled={submitting}>
-                  {submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Oluştur"}
+                  {submitting ? <span className="admin-spinner w-5 h-5 border-2" /> : "Kitapçık oluştur"}
                 </button>
               </div>
             </form>
@@ -638,7 +646,7 @@ const Booklets = () => {
             <div className="admin-modal-header">Kitapçığı sil</div>
             <div className="admin-modal-body">
               <p className="text-slate-600">
-                <strong>{form.name}</strong> kitapçığı ve tüm slotları kalıcı olarak silinecek. Onaylıyor musunuz?
+                <strong>{form.name}</strong> kitapçığı, tüm slotları ve atanmış sorularıyla birlikte kalıcı olarak silinecek. Bu işlem geri alınamaz.
               </p>
             </div>
             <div className="admin-modal-footer">
@@ -920,12 +928,12 @@ const Booklets = () => {
         <div className="admin-modal-backdrop" onClick={() => !submitting && setModal(null)}>
           <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header flex items-center justify-between">
-              <span>Kitapçık durumunu değiştir</span>
-              <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => !submitting && setModal(null)}><X size={18} /></button>
+              <span>Kitapçık durumu</span>
+              <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => !submitting && setModal(null)} aria-label="Kapat"><X size={18} /></button>
             </div>
             <form onSubmit={handleSetBookletStatus}>
               <div className="admin-modal-body">
-                <p className="text-sm text-slate-600 mb-3"><strong>{form.name}</strong></p>
+                <p className="text-sm text-slate-600 mb-4"><strong>{form.name}</strong></p>
                 <div className="admin-form-group">
                   <label className="admin-label admin-label-required">Durum</label>
                   <select
@@ -938,6 +946,7 @@ const Booklets = () => {
                       <option key={val} value={val}>{label}</option>
                     ))}
                   </select>
+                  <p className="text-xs text-slate-500 mt-1.5">Tamamlandı veya SınavAşamasında seçildiğinde slot ve soru ekleme/düzenleme kilitlenir.</p>
                 </div>
               </div>
               <div className="admin-modal-footer">
@@ -1069,27 +1078,32 @@ const Booklets = () => {
           ) : (
             <>
               <div className="booklets-detail-card admin-card rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                {isBookletLocked && (
+                <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-200 text-sm text-amber-800">
+                  Bu kitapçık tamamlandı veya sınav aşamasında; slot ve soru ekleme/düzenleme kilitlidir. Sadece durum değiştirme ve silme yapılabilir.
+                </div>
+              )}
                 <div className="booklets-detail-header px-5 py-4 flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-emerald-50 to-white border-b border-slate-200">
                   <div className="flex items-center gap-3">
                     <FileText size={24} className="text-emerald-600" />
                     <div>
                       <h2 className="text-lg font-bold text-slate-800">{selectedBooklet.name}</h2>
                       <p className="text-xs text-slate-500">
-                      {selectedBooklet.categorySubName ?? "—"} · Kod: {selectedBooklet.code ?? "—"}
-                      {selectedBooklet.status != null && (
-                        <span className="ml-2">
-                          · <span className="admin-badge admin-badge-neutral">{BOOKLET_STATUS_LABELS[selectedBooklet.status] ?? selectedBooklet.status}</span>
-                        </span>
-                      )}
-                    </p>
+                        {selectedBooklet.categorySubName ?? "—"} · Kod: {selectedBooklet.code ?? "—"}
+                        {selectedBooklet.status != null && (
+                          <span className="ml-2">
+                            · <span className="admin-badge admin-badge-neutral">{BOOKLET_STATUS_LABELS[selectedBooklet.status] ?? selectedBooklet.status}</span>
+                          </span>
+                        )}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button type="button" className="admin-btn admin-btn-secondary flex items-center gap-2" onClick={openAddSlotsSection} disabled={sections.length === 0}>
+                    <button type="button" className="admin-btn admin-btn-secondary flex items-center gap-2" onClick={openAddSlotsSection} disabled={isBookletLocked || sections.length === 0} title={isBookletLocked ? "Kitapçık kilitli" : "Tek bölüm için slot oluştur"}>
                       <Layers size={16} /> Bölüm için slot
                     </button>
                     {feature?.id && (
-                      <button type="button" className="admin-btn admin-btn-secondary flex items-center gap-2" onClick={openAddSlotsFeature}>
+                      <button type="button" className="admin-btn admin-btn-secondary flex items-center gap-2" onClick={openAddSlotsFeature} disabled={isBookletLocked} title={isBookletLocked ? "Kitapçık kilitli" : "Tüm bölümler için slot oluştur"}>
                         <ListOrdered size={16} /> Tüm bölümler için slot
                       </button>
                     )}
@@ -1145,11 +1159,11 @@ const Booklets = () => {
                                 <div className="flex items-center gap-1 flex-wrap">
                                   {slot.questionId ? (
                                     <>
-                                      <button type="button" className="admin-btn admin-btn-ghost admin-btn-icon" onClick={() => openEditQuestion(slot)} title="Düzenle"><Pencil size={14} /></button>
-                                      <button type="button" className="admin-btn admin-btn-ghost admin-btn-icon text-red-600 hover:bg-red-50" onClick={() => openRemoveQuestion(slot)} title="Soruyu kaldır"><Trash2 size={14} /></button>
+                                      <button type="button" className="admin-btn admin-btn-ghost admin-btn-icon" onClick={() => openEditQuestion(slot)} disabled={isBookletLocked} title={isBookletLocked ? "Kitapçık kilitli" : "Düzenle"}><Pencil size={14} /></button>
+                                      <button type="button" className="admin-btn admin-btn-ghost admin-btn-icon text-red-600 hover:bg-red-50" onClick={() => openRemoveQuestion(slot)} disabled={isBookletLocked} title={isBookletLocked ? "Kitapçık kilitli" : "Soruyu kaldır"}><Trash2 size={14} /></button>
                                     </>
                                   ) : (
-                                    <button type="button" className="admin-btn admin-btn-primary flex items-center gap-1" onClick={() => openAddQuestion(slot)}>
+                                    <button type="button" className="admin-btn admin-btn-primary flex items-center gap-1" onClick={() => openAddQuestion(slot)} disabled={isBookletLocked} title={isBookletLocked ? "Kitapçık kilitli" : "Soru ekle"}>
                                       <Plus size={14} /> Soru ekle
                                     </button>
                                   )}
