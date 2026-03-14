@@ -12,6 +12,9 @@ import {
   ListOrdered,
   Layers,
   Sliders,
+  Sparkles,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { getAllCategories } from "@/services/adminCategoryService";
@@ -38,6 +41,7 @@ import {
   getMikrosByCategorySubMainAndSub,
 } from "@/services/adminLessonService";
 import { getAllPublishers } from "@/services/adminPublisherService";
+import { generateQuestions, replaceQuestions } from "@/services/adminKnowledgeService";
 import { ERROR_MESSAGES, SUCCESS_MESSAGES, getFullImageUrl } from "@/constants";
 
 const getApiError = (err) =>
@@ -97,6 +101,8 @@ const Booklets = () => {
   const [lessonMikrosForQuestion, setLessonMikrosForQuestion] = useState([]);
   const [hierarchyLoading, setHierarchyLoading] = useState(false);
   const [publishers, setPublishers] = useState([]);
+  const [selectedSlotIds, setSelectedSlotIds] = useState([]);
+  const [aiLoading, setAiLoading] = useState(false);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -181,6 +187,7 @@ const Booklets = () => {
     try {
       const data = await getBookletById(bookletId);
       setSelectedBooklet(data);
+      setSelectedSlotIds([]);
       return data;
     } catch (err) {
       toast.error(getApiError(err));
@@ -565,6 +572,82 @@ const Booklets = () => {
 
   // API: Status 3 (Tamamlandı) ve 4 (SınavAşamasında) iken slot/soru ekleme ve içerik değişikliği kilitli
   const isBookletLocked = selectedBooklet && (selectedBooklet.status === 3 || selectedBooklet.status === 4);
+
+  const emptySlotsCount = (selectedBooklet?.slots ?? []).filter((s) => !s.questionId).length;
+  const allSlotIds = (selectedBooklet?.slots ?? []).map((s) => s.id);
+
+  const openAiGenerate = () => {
+    setForm({ aiResult: null });
+    setModal("ai-generate");
+  };
+
+  const handleAiGenerate = async () => {
+    if (!selectedBooklet?.id) return;
+    setAiLoading(true);
+    setForm((f) => ({ ...f, aiResult: null }));
+    try {
+      const result = await generateQuestions(selectedBooklet.id);
+      setForm((f) => ({ ...f, aiResult: result }));
+      if (result.errorCount === 0) {
+        toast.success(`${result.filledCount} boş slota AI ile soru üretildi.`);
+        loadBookletDetail(selectedBooklet.id);
+      } else {
+        toast.success(`${result.filledCount} slot dolduruldu. ${result.errorCount} hata.`);
+        loadBookletDetail(selectedBooklet.id);
+      }
+    } catch (err) {
+      const msg = getApiError(err);
+      toast.error(msg);
+      setModal(null);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const openAiReplace = () => {
+    if (selectedSlotIds.length === 0) return;
+    setForm({ slotIds: selectedSlotIds, aiReplaceResult: null });
+    setModal("ai-replace");
+  };
+
+  const handleAiReplace = async () => {
+    if (!selectedBooklet?.id || !form.slotIds?.length) return;
+    setAiLoading(true);
+    setForm((f) => ({ ...f, aiReplaceResult: null }));
+    try {
+      const result = await replaceQuestions(selectedBooklet.id, form.slotIds);
+      setForm((f) => ({ ...f, aiReplaceResult: result }));
+      if (result.errorCount === 0) {
+        toast.success(`${result.replacedCount} slot AI ile güncellendi.`);
+        setSelectedSlotIds([]);
+        loadBookletDetail(selectedBooklet.id);
+      } else {
+        toast.success(`${result.replacedCount} slot güncellendi. ${result.errorCount} hata.`);
+        setSelectedSlotIds([]);
+        loadBookletDetail(selectedBooklet.id);
+      }
+    } catch (err) {
+      const msg = getApiError(err);
+      toast.error(msg);
+      setModal(null);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const toggleSlotSelection = (slotId) => {
+    setSelectedSlotIds((prev) =>
+      prev.includes(slotId) ? prev.filter((id) => id !== slotId) : [...prev, slotId]
+    );
+  };
+
+  const toggleSelectAllSlots = () => {
+    if (selectedSlotIds.length === allSlotIds.length) {
+      setSelectedSlotIds([]);
+    } else {
+      setSelectedSlotIds([...allSlotIds]);
+    }
+  };
 
   const renderModal = () => {
     if (!modal) return null;
@@ -983,6 +1066,128 @@ const Booklets = () => {
       );
     }
 
+    if (modal === "ai-generate") {
+      const result = form.aiResult;
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !aiLoading && setModal(null)}>
+          <div className="admin-modal admin-modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header flex items-center justify-between border-b border-slate-200">
+              <span className="flex items-center gap-2">
+                <Sparkles className="text-violet-500" size={22} />
+                Yapay zeka ile boş slotlara soru üret
+              </span>
+              <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => !aiLoading && setModal(null)} aria-label="Kapat"><X size={18} /></button>
+            </div>
+            <div className="admin-modal-body space-y-4">
+              {!result ? (
+                <>
+                  <p className="text-slate-600">
+                    Bu kitapçıktaki <strong>{emptySlotsCount} boş slot</strong> için yapay zeka ile otomatik soru üretilecek. Her slotun bölüm bilgisine (LessonMain) göre uygun sorular oluşturulur.
+                  </p>
+                  {emptySlotsCount === 0 && (
+                    <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+                      Tüm slotlar zaten dolu. Boş slot yoksa soru üretimi yapılamaz.
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-3">
+                  <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3">
+                    <p className="font-medium text-emerald-800">İşlem tamamlandı</p>
+                    <p className="text-sm text-emerald-700 mt-1">
+                      {result.filledCount} slot dolduruldu.
+                      {result.errorCount > 0 && ` ${result.errorCount} slot/bölüm hata aldı.`}
+                    </p>
+                  </div>
+                  {result.errors?.length > 0 && (
+                    <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 max-h-40 overflow-y-auto">
+                      <p className="text-xs font-medium text-slate-500 uppercase mb-2">Hata mesajları</p>
+                      <ul className="text-sm text-slate-600 space-y-1">
+                        {result.errors.map((err, i) => (
+                          <li key={i} className="truncate" title={err}>{err}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="admin-modal-footer">
+              {!result ? (
+                <>
+                  <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={aiLoading}>İptal</button>
+                  <button type="button" className="admin-btn bg-violet-600 hover:bg-violet-700 text-white flex items-center gap-2" onClick={handleAiGenerate} disabled={aiLoading || emptySlotsCount === 0}>
+                    {aiLoading ? <span className="admin-spinner w-5 h-5 border-2 border-white border-t-transparent" /> : <Sparkles size={18} />}
+                    {aiLoading ? "Üretiliyor…" : "Soru üret"}
+                  </button>
+                </>
+              ) : (
+                <button type="button" className="admin-btn admin-btn-primary" onClick={() => setModal(null)}>Kapat</button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (modal === "ai-replace") {
+      const result = form.aiReplaceResult;
+      const count = form.slotIds?.length ?? selectedSlotIds.length;
+      return (
+        <div className="admin-modal-backdrop" onClick={() => !aiLoading && setModal(null)}>
+          <div className="admin-modal admin-modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header flex items-center justify-between border-b border-slate-200">
+              <span className="flex items-center gap-2">
+                <Sparkles className="text-violet-500" size={22} />
+                Seçili slotlardaki soruları AI ile değiştir
+              </span>
+              <button type="button" className="admin-btn admin-btn-icon admin-btn-ghost" onClick={() => !aiLoading && setModal(null)} aria-label="Kapat"><X size={18} /></button>
+            </div>
+            <div className="admin-modal-body space-y-4">
+              {!result ? (
+                <p className="text-slate-600">
+                  <strong>{count} slot</strong> için mevcut sorular kaldırılıp yerine yapay zeka ile yeni sorular üretilecek. Bölüm bilgisine göre uygun içerik oluşturulur.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3">
+                    <p className="font-medium text-emerald-800">İşlem tamamlandı</p>
+                    <p className="text-sm text-emerald-700 mt-1">
+                      {result.replacedCount} slot güncellendi.
+                      {result.errorCount > 0 && ` ${result.errorCount} slot hata aldı.`}
+                    </p>
+                  </div>
+                  {result.errors?.length > 0 && (
+                    <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 max-h-40 overflow-y-auto">
+                      <p className="text-xs font-medium text-slate-500 uppercase mb-2">Hata mesajları</p>
+                      <ul className="text-sm text-slate-600 space-y-1">
+                        {result.errors.map((err, i) => (
+                          <li key={i} className="truncate" title={err}>{err}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="admin-modal-footer">
+              {!result ? (
+                <>
+                  <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setModal(null)} disabled={aiLoading}>İptal</button>
+                  <button type="button" className="admin-btn bg-violet-600 hover:bg-violet-700 text-white flex items-center gap-2" onClick={handleAiReplace} disabled={aiLoading}>
+                    {aiLoading ? <span className="admin-spinner w-5 h-5 border-2 border-white border-t-transparent" /> : <Sparkles size={18} />}
+                    {aiLoading ? "Değiştiriliyor…" : "Soruları değiştir"}
+                  </button>
+                </>
+              ) : (
+                <button type="button" className="admin-btn admin-btn-primary" onClick={() => setModal(null)}>Kapat</button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return null;
   };
 
@@ -1122,7 +1327,11 @@ const Booklets = () => {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button type="button" className="admin-btn bg-violet-600 hover:bg-violet-700 text-white flex items-center gap-2" onClick={openAiGenerate} disabled={isBookletLocked || emptySlotsCount === 0} title={isBookletLocked ? "Kitapçık kilitli" : emptySlotsCount === 0 ? "Boş slot yok" : "Boş slotlara AI ile soru üret"}>
+                      <Sparkles size={16} /> AI ile soru üret
+                      {emptySlotsCount > 0 && <span className="text-violet-200 text-xs">({emptySlotsCount} boş)</span>}
+                    </button>
                     <button type="button" className="admin-btn admin-btn-secondary flex items-center gap-2" onClick={openAddSlotsSection} disabled={isBookletLocked || sections.length === 0} title={isBookletLocked ? "Kitapçık kilitli" : "Tek bölüm için slot oluştur"}>
                       <Layers size={16} /> Bölüm için slot
                     </button>
@@ -1141,12 +1350,29 @@ const Booklets = () => {
                 </div>
               </div>
 
+              {sectionGroups.length > 0 && selectedSlotIds.length > 0 && !isBookletLocked && (
+                <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl bg-violet-50 border border-violet-200">
+                  <span className="text-sm font-medium text-violet-800">
+                    <CheckSquare size={18} className="inline-block mr-1.5 align-middle" />
+                    {selectedSlotIds.length} slot seçili
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button type="button" className="admin-btn admin-btn-ghost text-violet-700 hover:bg-violet-100" onClick={() => setSelectedSlotIds([])}>
+                      Seçimi temizle
+                    </button>
+                    <button type="button" className="admin-btn bg-violet-600 hover:bg-violet-700 text-white flex items-center gap-2" onClick={openAiReplace}>
+                      <Sparkles size={16} /> Seçili slotları AI ile değiştir
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {sectionGroups.length === 0 ? (
                 <div className="admin-card admin-empty-state rounded-xl py-10 px-6">
                   <p className="text-slate-500">Henüz slot yok. &quot;Bölüm için slot&quot; veya &quot;Tüm bölümler için slot&quot; ile ekleyin.</p>
                 </div>
               ) : (
-                sectionGroups.map((group) => (
+                sectionGroups.map((group, groupIndex) => (
                   <section key={group.categorySectionId} className="booklets-section admin-card rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                     <div className="booklets-section-header px-5 py-3 flex items-center justify-between bg-slate-50 border-b border-slate-200">
                       <h3 className="font-semibold text-slate-800">{group.sectionName}</h3>
@@ -1156,6 +1382,17 @@ const Booklets = () => {
                       <table className="admin-table">
                         <thead>
                           <tr>
+                            {!isBookletLocked && (
+                              <th className="w-10 pr-0">
+                                {groupIndex === 0 ? (
+                                  <button type="button" className="flex items-center justify-center w-full py-1 text-slate-400 hover:text-violet-600 transition-colors" onClick={toggleSelectAllSlots} title={selectedSlotIds.length === allSlotIds.length && allSlotIds.length > 0 ? "Tümünü kaldır" : "Tümünü seç"}>
+                                    {selectedSlotIds.length === allSlotIds.length && allSlotIds.length > 0 ? <CheckSquare size={18} className="text-violet-600" /> : <Square size={18} />}
+                                  </button>
+                                ) : (
+                                  <span className="block w-5" />
+                                )}
+                              </th>
+                            )}
                             <th className="w-16">Sıra</th>
                             <th>Soru / Stem</th>
                             <th>Kod</th>
@@ -1165,6 +1402,18 @@ const Booklets = () => {
                         <tbody>
                           {group.slots.map((slot) => (
                             <tr key={slot.id}>
+                              {!isBookletLocked && (
+                                <td className="w-10 pr-0 text-center">
+                                  <label className="inline-flex items-center justify-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedSlotIds.includes(slot.id)}
+                                      onChange={() => toggleSlotSelection(slot.id)}
+                                      className="rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                                    />
+                                  </label>
+                                </td>
+                              )}
                               <td className="font-mono text-slate-600">{slot.orderIndex ?? 0}</td>
                               <td className="max-w-md">
                                 {slot.questionId ? (
